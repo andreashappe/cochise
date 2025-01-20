@@ -1,4 +1,5 @@
 .env
 src/__pycache__/
 src/cochise.egg-info/
+logs/run-*
 

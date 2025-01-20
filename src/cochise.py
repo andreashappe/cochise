@@ -1,6 +1,8 @@
 import operator
+import structlog
 
 from dotenv import load_dotenv
+from pathlib import Path
 from typing import Annotated, List, Tuple
 from typing_extensions import TypedDict
 
@@ -9,12 +11,32 @@ from langgraph.graph import StateGraph, START, END
 from langchain_openai import ChatOpenAI
 
 from common import get_or_fail
+from datetime import datetime
 from executor import executor_run
 from ptt import perform_planning_step, Response
 from ssh import get_ssh_connection_from_env, SshExecuteTool
 
 from rich.console import Console
 from rich.panel import Panel
+
+# setup logging
+current_timestamp = datetime.now()
+formatted_timestamp = current_timestamp.strftime('%Y%m%d-%H%M%S')
+
+structlog.configure(
+    processors=[
+        structlog.processors.add_log_level,
+        structlog.processors.StackInfoRenderer(),
+        structlog.dev.set_exc_info,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    logger_factory=structlog.WriteLoggerFactory(
+        file=Path(f"logs/run-{formatted_timestamp}").with_suffix(".log").open("wt")
+    )
+)
+logger = structlog.get_logger()
+logger.info("Starting testrun")
 
 # setup logggin console for now
 console = Console()
@@ -56,12 +78,14 @@ Old Plan: {state['plan']}
 Past Steps: {state['past_steps']}
     """
     console.print(Panel(planner_input, title='Planner Input'))
-
+    logger.info("Creating new Plan", op="replan_call", old_plan=state['plan'], past_steps=state['past_steps'])
     result = perform_planning_step(llm, state)
 
     if isinstance(result.action, Response):
+        logger.info("Result", op="replan_finish", result=result.action)
         return {"response": result.action.response}
     else:
+        logger.info("Next Step decided", op="replan_done", updated_plan=result.action.steps, next_step=result.action.next_step)
         console.print(Panel(result.action.steps, title='Updated Plan'))
         console.print(Panel(result.action.next_step, title='Next Step'))
         return {"plan": result.action.steps, "next_step": result.action.next_step}
@@ -80,7 +104,7 @@ def execute_phase(state: PlanExecute):
     tools = [SshExecuteTool(conn)]
     llm2_with_tools = llm2.bind_tools(tools)
 
-    return executor_run(SCENARIO, task, llm2_with_tools, tools, console)
+    return executor_run(SCENARIO, task, llm2_with_tools, tools, console, logger)
 
 workflow = StateGraph(PlanExecute)
 
@@ -99,7 +123,7 @@ app = workflow.compile()
 print(app.get_graph(xray=True).draw_ascii())
 
 # start everything
-events = app.stream(
+events = app.invoke(
     input = {
         "user_input": PromptTemplate.from_template(SCENARIO),
         "plan": '',
@@ -110,5 +134,5 @@ events = app.stream(
 )
 
 # output all occurring events 
-for event in events:
-    print(str(event))
+#for event in events:
+#    print(str(event))
