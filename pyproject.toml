@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cochise"
+version = "0.0.1"
+dependencies = [
+    "fabric>=3.2.2",
+    "invoke>=2.2.0",
+    "langgraph>=0.2.35",
+    "langchain-openai>=0.2.2",
+    "python-dotenv>=1.0.1",
+    "rich>=13.9.2",
+    "grandalf>=0.8"
+]
+requires-python = ">= 3.8"
