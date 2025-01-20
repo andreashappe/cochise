@@ -31,25 +31,39 @@ def executor_run(SCENARIO, task, llm2_with_tools, tools, console, logger):
     If not successful until then, give a summary of gathered facts.
     """).format(task=task)
 
+    tool_calls = {}
+
     # create our command executor/agent graph
     graph_builder = StateGraph(ExecutorState)
 
     # this is still named chatbot as we copied it from the langgraph
     # example code. This should rather be named 'hackerbot' or something
     def chatbot(state: ExecutorState):
-        if len(state["messages"]) > 0:
-            last_message = state["messages"][-1]
-            if isinstance(last_message, ToolMessage):
-                logger.info("Result from Tool", op="tool_result", result=last_message.content)
-                console.print(Panel(last_message.content, title="Tool Result"), markup=False)
+        for msg in state['messages']:
+            if isinstance(msg, ToolMessage):
+                tool = tool_calls[msg.tool_call_id]
+                if tool['finished'] == False:
+                    tool['result'] = msg.content
+                    tool['finished'] = True
+                    logger.info("Result from Tool", tool=tool, op="tool_result", result=msg.content)
+                    console.print(Panel(msg.content, title=f"Tool Result for {tool['cmd']}"), markup=False)
 
         next_step = llm2_with_tools.invoke(state["messages"])
-
-        # if toolcall: what was the toolcall?
-        result = "\n".join(list(map(lambda x: f"{x['name']}: '{x['args']['command']}'", next_step.tool_calls)))
-        console.print(Panel(result, title="Tool Call(s)"))
-        logger.info("Calling Tools", op="tool_call", tools=result)
         return {"messages": [next_step]}
+    
+    def extract_tool_calls(message):
+        name = message['name']
+        id = message['id']
+        command = message['args']['command']
+
+        tool_calls[id] = {
+            'tool': name,
+            'cmd': command,
+            'finished': False,
+            'result': ''
+        }
+
+        return f"{name}: {command}"
 
     # Copied from the quickstart example, might be simplified
     def route_tools(state: ExecutorState):
@@ -63,7 +77,12 @@ def executor_run(SCENARIO, task, llm2_with_tools, tools, console, logger):
             ai_message = messages[-1]
         else:
             raise ValueError(f"No messages found in input state to tool_edge: {state}")
+
+        # maybe log every single tool call (so that we have Ids and stuff)
         if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0:
+            result = "\n".join(list(map(extract_tool_calls, ai_message.tool_calls)))
+            console.print(Panel(result, title="Tool Call(s)"))
+            logger.info("Calling Tools", op="tool_call", tools=result)
             return "tools"
         return END
 
@@ -84,10 +103,13 @@ def executor_run(SCENARIO, task, llm2_with_tools, tools, console, logger):
 
     agent_response = None
     for event in events:
-        print(str(event))
+        #print(str(event))
         agent_response = event
 
     final_message = agent_response["messages"][-1].content
+
+    #print("Tool Calls:\n\n")
+    #print(str(tool_calls))
 
     console.print(Panel(final_message, title="ExecutorAgent Output"))
     logger.info("Agent Result!", op="agent_result", result=final_message)
