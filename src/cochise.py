@@ -65,7 +65,7 @@ ultimate goal is to gain domain dominance by compromising the domain administrat
 account.
 
 You have access to a Kali Linux system within the same network and are able
-to execute commands on this system.
+to execute commands on this system. Do not use nessus.
 """
 
 # create the graph
@@ -79,7 +79,10 @@ Past Steps: {state['past_steps']}
     """
     console.print(Panel(planner_input, title='Planner Input'))
     logger.info("Creating new Plan", op="replan_call", old_plan=state['plan'], past_steps=state['past_steps'])
-    result = perform_planning_step(llm, state)
+
+    past_steps = "\n".join(map(lambda x: f"## {x[0]}\n\n### Result:\n\n {x[1]}", state["past_steps"]))
+
+    result = perform_planning_step(llm, SCENARIO, state['plan'], past_steps, logger)
 
     if isinstance(result.action, Response):
         logger.info("Result", op="replan_finish", result=result.action)

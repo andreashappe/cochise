@@ -1,7 +1,8 @@
 from typing import Union
 from pydantic import BaseModel, Field
+from typing_extensions import TypedDict
 
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 PLANNER_PROMPT = """
 You are given an objective by the user. You are required to strategize and create
@@ -32,14 +33,19 @@ reaching the objective anymore.
 tasks and decide which one should be performed next based on their likelihood to a
 successful exploit. Name this task as 'next_step'.
     
-Your objective was this:
+# Your objective was this:
+
 {user_input}
 
-Your original task-plan was this:
+# Your original task-plan was this:
+
 {plan}
 
-You have currently done the follow tasks:
+# You have currently done the follow tasks:
+
 {past_steps}
+
+# Further Instructions
 
 If no more steps are needed to solve the objective, then respond with that. Otherwise,
 return a new task-plan and the next step to execute. If you were not able to complete
@@ -74,6 +80,22 @@ class Act(BaseModel):
         "If you need to further use tools to get the answer, use Plan."
     )
 
-def perform_planning_step(llm, state):
-    replanner = ChatPromptTemplate.from_template(PLANNER_PROMPT) | llm.with_structured_output(Act)
+class PlanExecute(TypedDict):
+    user_input: str     # the initial user-given objective
+    plan: str           # the current task plan
+    past_steps: str # past steps of the agent, also including a summary
+
+def perform_planning_step(llm, task, plan, past_steps, logger):
+    replanner = PromptTemplate.from_template(PLANNER_PROMPT)
+
+    state = PlanExecute(
+        user_input = task,
+        plan = plan,
+        past_steps = past_steps
+    )
+
+    logger.debug("planning_prompt", prompt=replanner.format(user_input=task, plan=plan, past_steps=past_steps))
+    
+    replanner = replanner | llm.with_structured_output(Act)
+
     return replanner.invoke(state)

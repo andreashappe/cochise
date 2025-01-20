@@ -84,7 +84,7 @@ def executor_run(SCENARIO, task, llm2_with_tools, tools, console, logger):
 
     agent_response = None
     for event in events:
-        # print(str(event))
+        print(str(event))
         agent_response = event
 
     final_message = agent_response["messages"][-1].content
