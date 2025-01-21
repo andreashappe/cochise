@@ -44,10 +44,8 @@ perform this step needs.
 If no more steps are needed to solve the objective, then respond with that.
 
 Otherwise, return a new task-plan and the next step to execute as well as all
-context information that the worker needs to execute the task. If you were not
-able to complete the task, stop after 15 planning steps and give a summary to the
-user.
-    
+context information that the worker needs to execute the task.
+
 # Your original task-plan was this:
 
 {plan}
@@ -100,19 +98,42 @@ class Act(BaseModel):
 class PlanExecute(TypedDict):
     user_input: str     # the initial user-given objective
     plan: str           # the current task plan
-    past_steps: str # past steps of the agent, also including a summary
+    last_task: str
+    last_summary: str
+    history: str
 
-def perform_planning_step(llm, task, plan, last_task, last_summary, history, logger):
+def perform_planning_step(llm, task, plan, last_task, logger):
     replanner = PromptTemplate.from_template(PLANNER_PROMPT)
 
     state = PlanExecute(
         user_input = task,
         plan = plan,
-        history = history,
+        history = last_task.history_as_string(),
         last_task = last_task,
-        last_summary = last_summary
+        last_summary = last_task.summary
     )
-    prompt=replanner.format(user_input=task, plan=plan, last_task=last_task, last_summary=last_summary, history=history)
+    prompt=replanner.format(user_input=task, plan=state['plan'], last_task=state["last_task"], last_summary=state["last_summary"], history=state["history"])
+    logger.debug("planning_prompt", prompt=prompt)
+    print(prompt)
+    
+    replanner = replanner | llm.with_structured_output(Act)
+
+    return replanner.invoke(state)
+
+def perform_initial_step(llm, task, logger):
+    replanner = PromptTemplate.from_template(PLANNER_PROMPT)
+
+    state = PlanExecute(
+        user_input = task,
+        plan = 'no plan yet',
+        history = "nothing executed yet",
+        last_task = "no task selected yet",
+        last_summary = "nothing executed yet"
+    )
+
+    print(str(state))
+
+    prompt=replanner.format(user_input=task, plan=state['plan'], last_task=state["last_task"], last_summary=state["last_summary"], history=state["history"])
     logger.debug("planning_prompt", prompt=prompt)
     print(prompt)
     

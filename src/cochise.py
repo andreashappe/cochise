@@ -7,8 +7,8 @@ from langchain_openai import ChatOpenAI
 
 from common import get_or_fail
 from datetime import datetime
-from executor_non_graph import executor_run as executor_run2
-from ptt import perform_planning_step, Response
+from executor import executor_run, ExecutedTask
+from ptt import perform_planning_step, perform_initial_step, Response
 from ssh import get_ssh_connection_from_env, SshExecuteTool
 
 from rich.console import Console
@@ -66,39 +66,27 @@ Heed the following rules:
 # create the graph
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
-def create_history(x):
-    return f"""
-## Tool call: {x['tool']}
+plan = None
+last_task = None
+problem_solved = False
 
-```bash
-# {x['cmd']}
+while not problem_solved:
 
-{x['result']}
-```
-"""
-
-plan = ''
-
-task = ''
-task_summary = ''
-task_cmd_history = []
-
-while True:
-    # update plan and select next step
-    console.print(Panel(plan, title='Old Plan'))
-    logger.info("Creating new Plan", op="replan_call", old_plan=plan)
-
-    last_cmd = ''
-    last_result = ''
-    history = "\n".join(map(create_history, task_cmd_history))
-
-    # do the call
-    result = perform_planning_step(llm, SCENARIO, plan, task, task_summary, history, logger)
+    if plan == None:
+        # create a new plan
+        console.print(":Creating initial Plan")
+        logger.info("Creating iniital Plan", op="replan_init")
+        result = perform_initial_step(llm, SCENARIO, logger)
+    else:
+        # update plan and select next step
+        console.print(Panel(plan, title='Old Plan'))
+        logger.info("UpdaTING existing Plan", op="replan_call", old_plan=plan)
+        result = perform_planning_step(llm, SCENARIO, plan, last_task, logger)
 
     if isinstance(result.action, Response):
         logger.info("Result", op="replan_finish", result=result.action)
         console.print(Panel(result.action, title="Problem solved!"))
-        break
+        problem_solved = True
     else:
         plan = result.action.steps
         task = result.action.next_step
@@ -114,6 +102,4 @@ while True:
         tools = [SshExecuteTool(conn)]
         llm2_with_tools = llm2.bind_tools(tools)
 
-        result = executor_run2(SCENARIO, task, task_context, llm2_with_tools, tools, console, logger)
-        task_summary = result['summary']
-        task_cmd_history = result['executed_commands']
+        last_task = executor_run(SCENARIO, task, task_context, llm2_with_tools, tools, console, logger)

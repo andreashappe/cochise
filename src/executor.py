@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from typing import Dict, List
+
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 from langchain_core.messages import SystemMessage
 
@@ -14,8 +17,29 @@ You are given the following context that might help you achieving that task:
 {context}
 ```
 
+Perform the task against the target environment.
 If you were able to achieve the task, describe the used method as final message.
 """
+
+def create_history(x):
+    return f"""
+## Tool call: {x['tool']}
+
+```bash
+# {x['cmd']}
+
+{x['result']}
+```
+"""
+
+@dataclass
+class ExecutedTask:
+    task: str
+    summary: str
+    cmd_history: List[Dict[str, str]]
+
+    def history_as_string(self):
+        return "\n".join(map(create_history, self.cmd_history))
 
 def executor_run(SCENARIO, task, context, llm2_with_tools, tools, console, logger):
 
@@ -81,8 +105,4 @@ def executor_run(SCENARIO, task, context, llm2_with_tools, tools, console, logge
     console.print(Panel(summary, title="ExecutorAgent Output"))
     logger.info("Agent Result!", op="agent_result", result=summary, task=task, executed_commands=history)
 
-    return {
-        'task': task,
-        'summary': summary,
-        'executed_commands': history
-    }
+    return ExecutedTask(task, summary, history)
