@@ -1,126 +1,88 @@
-# split out the low-level executor
-
-from typing import Annotated
-from typing_extensions import TypedDict
-
-from langchain_core.messages.tool import ToolMessage
-from langchain_core.prompts import PromptTemplate
-from langgraph.prebuilt import ToolNode
-from langgraph.graph.message import add_messages
-from langgraph.graph import StateGraph, START, END
+from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
+from langchain_core.messages import SystemMessage
 
 from rich.panel import Panel
 
+PROMPT = """
+To achieve the scenario, focus upon the following task:
+                                      
+`{task}`
+                                      
+You are given the following context that might help you achieving that task:
 
-# the task executor
-class ExecutorState(TypedDict):
-    messages: Annotated[list, add_messages]
+```                                
+{context}
+```
+
+If you were able to achieve the task, describe the used method as final message.
+"""
 
 def executor_run(SCENARIO, task, context, llm2_with_tools, tools, console, logger):
 
-    logger.info("Agent Started!", op="agent_start", task=task)
+    # create a string -> tool mapping
+    mapping = {}
+    for tool in tools:
+        mapping[tool.__class__.__name__] = tool
 
-    prompt = PromptTemplate.from_template(SCENARIO + """
-    To achieve this, focus upon the following task:
-                                          
-    `{task}`
-                                          
-    You are given the following context that might help you achieving that task:
-    
-    ```                                
-    {context}
-    ```
+    # tool_call history
+    history = []
 
-    If you were able to achieve the
-    task, describe the used method as final message. Stop after 5 executions.
-    If not successful until then, give a summary of gathered facts.
-    """).format(task=task, context=context)
+    # how many rounds will we do?
+    MAX_ROUNDS: int = 5
 
-    tool_calls = {}
-
-    # create our command executor/agent graph
-    graph_builder = StateGraph(ExecutorState)
-
-    # this is still named chatbot as we copied it from the langgraph
-    # example code. This should rather be named 'hackerbot' or something
-    def chatbot(state: ExecutorState):
-        for msg in state['messages']:
-            if isinstance(msg, ToolMessage):
-                tool = tool_calls[msg.tool_call_id]
-                if tool['finished'] == False:
-                    tool['result'] = msg.content
-                    tool['finished'] = True
-                    logger.info("Result from Tool", tool=tool, op="tool_result", result=msg.content)
-                    console.print(Panel(msg.content, title=f"Tool Result for {tool['cmd']}"), markup=False)
-
-        next_step = llm2_with_tools.invoke(state["messages"])
-        return {"messages": [next_step]}
-    
-    def extract_tool_calls(message):
-        name = message['name']
-        id = message['id']
-        command = message['args']['command']
-
-        tool_calls[id] = {
-            'tool': name,
-            'cmd': command,
-            'finished': False,
-            'result': ''
-        }
-
-        return f"{name}: {command}"
-
-    # Copied from the quickstart example, might be simplified
-    def route_tools(state: ExecutorState):
-        """
-        Use in the conditional_edge to route to the ToolNode if the last message
-        has tool calls. Otherwise, route to the end.
-        """
-        if isinstance(state, list):
-            ai_message = state[-1]
-        elif messages := state.get("messages", []):
-            ai_message = messages[-1]
-        else:
-            raise ValueError(f"No messages found in input state to tool_edge: {state}")
-
-        # maybe log every single tool call (so that we have Ids and stuff)
-        if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0:
-            result = "\n".join(list(map(extract_tool_calls, ai_message.tool_calls)))
-            console.print(Panel(result, title="Tool Call(s)"))
-            logger.info("Calling Tools", op="tool_call", tools=result)
-            return "tools"
-        return END
-
-    graph_builder.add_node("chatbot", chatbot)
-    graph_builder.add_node("tools", ToolNode(tools=tools))
-
-    graph_builder.add_edge(START, "chatbot")
-    graph_builder.add_conditional_edges("chatbot", route_tools)
-    graph_builder.add_edge("tools", "chatbot")
-    graph_builder.add_edge("chatbot", END)
-    graph = graph_builder.compile()
-
-    # run subgraph till it finishes
-    events = graph.stream(
-        {"messages": [("user", prompt)]},
-        stream_mode='values'
+    # the initial prompt
+    chat_template = ChatPromptTemplate.from_messages(
+        [
+            SystemMessage(content=SCENARIO),
+            HumanMessagePromptTemplate.from_template(PROMPT)
+        ]
     )
 
-    agent_response = None
-    for event in events:
-        #print(str(event))
-        agent_response = event
+    # our message history
+    messages = chat_template.format_messages(task=task, context=context)
 
-    final_message = agent_response["messages"][-1].content
+    # try to solve our sub-task
+    round = 1
+    summary = "Was not able to achieve task"
+    while round <= MAX_ROUNDS:
+        ai_msg = llm2_with_tools.invoke(messages)
+        messages.append(ai_msg)
 
-    #print("Tool Calls:\n\n")
-    #print(str(tool_calls))
+        if hasattr(ai_msg, "tool_calls") and len(ai_msg.tool_calls) > 0:
 
-    console.print(Panel(final_message, title="ExecutorAgent Output"))
-    logger.info("Agent Result!", op="agent_result", result=final_message)
+            # output a summary before we do the acutal tool calls
+            result = "\n".join(list(map(lambda x: f"{x['name']}: {x['args']['command']}", ai_msg.tool_calls)))
+            console.print(Panel(result, title="Tool Call(s)"))
+            logger.info("Calling Tools", op="tool_call", tools=result)
+
+            # perform all tool calls
+            for tool_call in ai_msg.tool_calls:
+                selected_tool = mapping[tool_call["name"]]
+                cmd = tool_call["args"]["command"]
+                tool_msg = selected_tool.invoke(tool_call)
+
+                console.print(Panel(tool_msg.content, title=f"Tool Result for {cmd}"), markup=False)
+                history.append({
+                    'tool': tool_call['name'],
+                    'cmd': cmd,
+                    'finished': True,
+                    'result': tool_msg.content
+                })
+                messages.append(tool_msg)
+        else:
+            # the AI message has not tool_call -> this was some sort of result then
+            # TODO: maybe use structured output so that we do not have this ugly if
+            # TODO: ai_msg also has token counts, capture those too
+            summary = ai_msg.content
+            break
+        round = round + 1
+
+    # output the result, then return it
+    console.print(Panel(summary, title="ExecutorAgent Output"))
+    logger.info("Agent Result!", op="agent_result", result=summary, task=task, executed_commands=history)
 
     return {
         'task': task,
-        'summary': final_message,
-        'executed_commands': tool_calls
+        'summary': summary,
+        'executed_commands': history
     }

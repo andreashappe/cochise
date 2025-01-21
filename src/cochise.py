@@ -1,18 +1,13 @@
-import operator
 import structlog
 
 from dotenv import load_dotenv
 from pathlib import Path
-from typing import Annotated, Dict, List, Tuple
-from typing_extensions import TypedDict
 
-from langchain_core.prompts import PromptTemplate
-from langgraph.graph import StateGraph, START, END
 from langchain_openai import ChatOpenAI
 
 from common import get_or_fail
 from datetime import datetime
-from executor import executor_run
+from executor_non_graph import executor_run as executor_run2
 from ptt import perform_planning_step, Response
 from ssh import get_ssh_connection_from_env, SshExecuteTool
 
@@ -48,17 +43,6 @@ get_or_fail("OPENAI_API_KEY") # langgraph will use this env variable itself
 conn = get_ssh_connection_from_env()
 conn.connect()
 
-# define my state
-# the shared graph data structure
-class PlanExecute(TypedDict):
-    user_input: str     # the initial user-given objective
-    plan: str           # the current task plan
-    next_step: str      # the next operation to be tested by the agent
-    next_step_context: str # context for the next command
-    past_steps: Annotated[List[Tuple], operator.add] # past steps of the agent, also including a summary
-    response: str       # response from the agent to the user
-    executed_commands: Dict[str, str]
-
 SCENARIO = """
 You are a professional penetration tester and are tasked to secure a Microsoft
 Windows Enterprise Network by performing a penetration test against this network.
@@ -93,85 +77,43 @@ def create_history(x):
 ```
 """
 
-# perform the high-level planning
-def high_level_planning_step(state: PlanExecute):
-    console.print(Panel(state['plan'], title='Old Plan'))
-    logger.info("Creating new Plan", op="replan_call", old_plan=state['plan'], past_steps=state['past_steps'])
+plan = ''
+
+task = ''
+task_summary = ''
+task_cmd_history = []
+
+while True:
+    # update plan and select next step
+    console.print(Panel(plan, title='Old Plan'))
+    logger.info("Creating new Plan", op="replan_call", old_plan=plan)
 
     last_cmd = ''
     last_result = ''
-    if len(state["past_steps"]):
-        last_cmd = state["past_steps"][-1][0]
-        last_result = state["past_steps"][-1][1]
+    history = "\n".join(map(create_history, task_cmd_history))
 
-    # past_steps = "\n".join(map(lambda x: f"## {x[0]}\n\n### Result:\n\n {x[1]}", state["past_steps"]))
-    history = "\n".join(map(create_history, state['executed_commands'].values()))
-
-    result = perform_planning_step(llm, SCENARIO, state['plan'], last_cmd, last_result, history, logger)
-
-    # TODO: can I get tokens and model data here?
-    print(str(result))
+    # do the call
+    result = perform_planning_step(llm, SCENARIO, plan, task, task_summary, history, logger)
 
     if isinstance(result.action, Response):
         logger.info("Result", op="replan_finish", result=result.action)
-        return {"response": result.action.response}
+        console.print(Panel(result.action, title="Problem solved!"))
+        break
     else:
-        logger.info("Next Step decided", op="replan_done", updated_plan=result.action.steps, next_step=result.action.next_step)
-        console.print(Panel(Markdown(result.action.steps), title='Updated Plan'))
-        console.print(Panel(result.action.next_step, title='Next Step'))
-        console.print(Panel(result.action.next_step_context, title='Next Step Context'))
-        return {"plan": result.action.steps, "next_step": result.action.next_step, "next_step_context": result.action.next_step_context}
+        plan = result.action.steps
+        task = result.action.next_step
+        task_context =result.action.next_step_context
 
-def has_high_level_planning_finished(state: PlanExecute):
-    if "response" in state and state["response"]:
-        return END
-    else:
-        return "execute_phase"
+        logger.info("Next Step decided", op="replan_done", updated_plan=plan, next_step=task)
+        console.print(Panel(Markdown(plan), title='Updated Plan'))
+        console.print(Panel(task, title='Next Step'))
+        console.print(Panel(task_context, title='Next Step Context'))
 
-def execute_phase(state: PlanExecute):
-    task = state["next_step"]
-    context = state["next_step_context"]
+        # create a separate LLM instance so that we have a new state
+        llm2 = ChatOpenAI(model="gpt-4o", temperature=0)
+        tools = [SshExecuteTool(conn)]
+        llm2_with_tools = llm2.bind_tools(tools)
 
-    # create a separate LLM instance so that we have a new state
-    llm2 = ChatOpenAI(model="gpt-4o", temperature=0)
-    tools = [SshExecuteTool(conn)]
-    llm2_with_tools = llm2.bind_tools(tools)
-
-    result = executor_run(SCENARIO, task, context, llm2_with_tools, tools, console, logger)
-
-    return {
-        "past_steps": [(result['task'], result['summary'])],
-        "executed_commands": result['executed_commands'],
-    }
-
-workflow = StateGraph(PlanExecute)
-
-# Add the nodes
-workflow.add_node("highlevel-planner", high_level_planning_step)
-workflow.add_node("execute_phase", execute_phase)
-
-# set the start node
-workflow.add_edge(START, "highlevel-planner")
-
-# configure links between nodes
-workflow.add_edge("execute_phase", "highlevel-planner")
-workflow.add_conditional_edges("highlevel-planner", has_high_level_planning_finished)
-
-app = workflow.compile()
-print(app.get_graph(xray=True).draw_ascii())
-
-# start everything
-events = app.invoke(
-    input = {
-        "user_input": PromptTemplate.from_template(SCENARIO),
-        "plan": '',
-        'next_step': '',
-        'executed_commands': {}
-    },
-    config = {"recursion_limit": 50},
-    stream_mode = "values"
-)
-
-# output all occurring events 
-#for event in events:
-#    print(str(event))
+        result = executor_run2(SCENARIO, task, task_context, llm2_with_tools, tools, console, logger)
+        task_summary = result['summary']
+        task_cmd_history = result['executed_commands']
