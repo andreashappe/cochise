@@ -16,20 +16,25 @@ from rich.panel import Panel
 class ExecutorState(TypedDict):
     messages: Annotated[list, add_messages]
 
-def executor_run(SCENARIO, task, llm2_with_tools, tools, console, logger):
+def executor_run(SCENARIO, task, context, llm2_with_tools, tools, console, logger):
 
     logger.info("Agent Started!", op="agent_start", task=task)
 
     prompt = PromptTemplate.from_template(SCENARIO + """
-    To achieve this, focus upon {task}
-
-    Do not repeat already tried escalation attacks. You should focus upon
-    enumeration and privilege escalation.
+    To achieve this, focus upon the following task:
                                           
+    `{task}`
+                                          
+    You are given the following context that might help you achieving that task:
+    
+    ```                                
+    {context}
+    ```
+
     If you were able to achieve the
     task, describe the used method as final message. Stop after 5 executions.
     If not successful until then, give a summary of gathered facts.
-    """).format(task=task)
+    """).format(task=task, context=context)
 
     tool_calls = {}
 
@@ -114,9 +119,8 @@ def executor_run(SCENARIO, task, llm2_with_tools, tools, console, logger):
     console.print(Panel(final_message, title="ExecutorAgent Output"))
     logger.info("Agent Result!", op="agent_result", result=final_message)
 
-    # add the last message (which should include a summary) to the global
-    # past_steps collection
-    # TODO: replace this with a better memory mechanism
     return {
-        "past_steps": [(task, final_message)],
+        'task': task,
+        'summary': final_message,
+        'executed_commands': tool_calls
     }

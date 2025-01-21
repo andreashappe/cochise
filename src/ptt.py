@@ -5,7 +5,13 @@ from typing_extensions import TypedDict
 from langchain_core.prompts import PromptTemplate
 
 PLANNER_PROMPT = """
-You are given an objective by the user. You are required to strategize and create
+You are given the following objective by the user:
+
+```
+{user_input}
+```
+
+You are required to strategize and create
 a tree-structured task plan that will allow to successfully solve the objective.
 Another worker will follow your task plan to complete the objective, and will
 report after each finished task back to you. You should use this feedback to update
@@ -21,7 +27,8 @@ You can display the tasks in a layer structure, such as 1, 1.1, 1.1.1, etc. Init
 you should only generate the root tasks based on the initial information. This plan
 should involve individual tasks, that if executed correctly will yield the
 correct answer. Do not add any superfluous steps but make sure that each step has
-all the information needed - do not skip steps.
+all the information needed - do not skip steps. You can include relevant information
+as sub-node of a task.
 
 2. Each time you receive results from the worker you should 
 2.1 Analyze the message and see identify useful key information
@@ -31,29 +38,35 @@ Only add steps to the plan that still NEED to be done.
 reaching the objective anymore.
 2.4 From all the tasks, identify those that can be performed next. Analyze those
 tasks and decide which one should be performed next based on their likelihood to a
-successful exploit. Name this task as 'next_step'.
+successful exploit. Identify all context information that a worker that should
+perform this step needs.
+
+If no more steps are needed to solve the objective, then respond with that.
+
+Otherwise, return a new task-plan and the next step to execute as well as all
+context information that the worker needs to execute the task. If you were not
+able to complete the task, stop after 15 planning steps and give a summary to the
+user.
     
-# Your objective was this:
-
-{user_input}
-
 # Your original task-plan was this:
 
 {plan}
 
-# You have currently done the follow tasks:
+# You have recently executed the following command
 
-{past_steps}
+Integrate findings and results from this commands into the task plan
 
-# Further Instructions
+## Task
 
-If no more steps are needed to solve the objective, then respond with that. Otherwise,
-return a new task-plan and the next step to execute. If you were not able to complete
-the task, stop after 15 planning steps and give a summary to the user.
+{last_task}
 
-In addition select the next task (as next_step) that should be executed by the tester.
-Include all needed information that the tester will need to execute the task within
-next_step.
+## Summarized Results
+
+{last_summary}
+
+## Executed Steps
+
+{history}
 """
 
 ### Planner component: response data-type (main type: Act)
@@ -66,6 +79,10 @@ class Plan(BaseModel):
 
     next_step: str = Field(
         description = "The next task to perform."
+    )
+
+    next_step_context: str = Field(
+        description = "Context for worker that executes the next step"
     )
 
 class Response(BaseModel):
@@ -85,16 +102,19 @@ class PlanExecute(TypedDict):
     plan: str           # the current task plan
     past_steps: str # past steps of the agent, also including a summary
 
-def perform_planning_step(llm, task, plan, past_steps, logger):
+def perform_planning_step(llm, task, plan, last_task, last_summary, history, logger):
     replanner = PromptTemplate.from_template(PLANNER_PROMPT)
 
     state = PlanExecute(
         user_input = task,
         plan = plan,
-        past_steps = past_steps
+        history = history,
+        last_task = last_task,
+        last_summary = last_summary
     )
-
-    logger.debug("planning_prompt", prompt=replanner.format(user_input=task, plan=plan, past_steps=past_steps))
+    prompt=replanner.format(user_input=task, plan=plan, last_task=last_task, last_summary=last_summary, history=history)
+    logger.debug("planning_prompt", prompt=prompt)
+    print(prompt)
     
     replanner = replanner | llm.with_structured_output(Act)
 
