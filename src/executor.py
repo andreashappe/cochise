@@ -1,10 +1,10 @@
-from dataclasses import dataclass
-from typing import Dict, List
-
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 from langchain_core.messages import SystemMessage
 
 from rich.panel import Panel
+from rich.text import Text
+
+from ptt import ExecutedTask
 
 PROMPT = """
 To achieve the scenario, focus upon the following task:
@@ -20,26 +20,6 @@ You are given the following context that might help you achieving that task:
 Perform the task against the target environment.
 If you were able to achieve the task, describe the used method as final message.
 """
-
-def create_history(x):
-    return f"""
-## Tool call: {x['tool']}
-
-```bash
-# {x['cmd']}
-
-{x['result']}
-```
-"""
-
-@dataclass
-class ExecutedTask:
-    task: str
-    summary: str
-    cmd_history: List[Dict[str, str]]
-
-    def history_as_string(self):
-        return "\n".join(map(create_history, self.cmd_history))
 
 def executor_run(SCENARIO, task, context, llm2_with_tools, tools, console, logger):
 
@@ -72,6 +52,10 @@ def executor_run(SCENARIO, task, context, llm2_with_tools, tools, console, logge
         ai_msg = llm2_with_tools.invoke(messages)
         messages.append(ai_msg)
 
+        console.print(Panel(str(ai_msg.response_metadata), title="LLM costs"))
+        logger.debug("executor_next_promp", result=ai_msg.content, tool_calls=ai_msg.tool_calls, metadata=ai_msg.response_metadata)
+
+        # TODO: maybe use structured output so that we do not have this ugly if
         if hasattr(ai_msg, "tool_calls") and len(ai_msg.tool_calls) > 0:
 
             # output a summary before we do the acutal tool calls
@@ -95,8 +79,6 @@ def executor_run(SCENARIO, task, context, llm2_with_tools, tools, console, logge
                 messages.append(tool_msg)
         else:
             # the AI message has not tool_call -> this was some sort of result then
-            # TODO: maybe use structured output so that we do not have this ugly if
-            # TODO: ai_msg also has token counts, capture those too
             summary = ai_msg.content
             break
         round = round + 1

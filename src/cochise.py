@@ -8,7 +8,7 @@ from langchain_openai import ChatOpenAI
 from common import get_or_fail
 from datetime import datetime
 from executor import executor_run, ExecutedTask
-from ptt import perform_planning_step, perform_initial_step, Response
+from ptt import perform_planning_step, PlanFinished, PlanProgressing, PlanResult
 from ssh import get_ssh_connection_from_env, SshExecuteTool
 
 from rich.console import Console
@@ -66,31 +66,21 @@ Heed the following rules:
 # create the graph
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
-plan = None
-last_task = None
-problem_solved = False
+plan:str = ''
+last_task_result: ExecutedTask = None
+planning_result: PlanResult = None
 
-while not problem_solved:
+while not isinstance(planning_result, PlanFinished):
 
-    if plan == None:
-        # create a new plan
-        console.print(":Creating initial Plan")
-        logger.info("Creating iniital Plan", op="replan_init")
-        result = perform_initial_step(llm, SCENARIO, logger)
-    else:
-        # update plan and select next step
-        console.print(Panel(plan, title='Old Plan'))
-        logger.info("UpdaTING existing Plan", op="replan_call", old_plan=plan)
-        result = perform_planning_step(llm, SCENARIO, plan, last_task, logger)
+    with console.status("[bold green]llm-call: updating plan and selecting next task") as status:
+        console.print("Analyzing and Updating task plan..")
+        logger.info("Updating existing Plan", op="replan_call", old_plan=plan)
+        result = perform_planning_step(llm, SCENARIO, logger, plan, last_task_result).action
 
-    if isinstance(result.action, Response):
-        logger.info("Result", op="replan_finish", result=result.action)
-        console.print(Panel(result.action, title="Problem solved!"))
-        problem_solved = True
-    else:
-        plan = result.action.steps
-        task = result.action.next_step
-        task_context =result.action.next_step_context
+    if isinstance(result, PlanProgressing):
+        plan = result.steps
+        task = result.next_step
+        task_context =result.next_step_context
 
         logger.info("Next Step decided", op="replan_done", updated_plan=plan, next_step=task)
         console.print(Panel(Markdown(plan), title='Updated Plan'))
@@ -102,4 +92,8 @@ while not problem_solved:
         tools = [SshExecuteTool(conn)]
         llm2_with_tools = llm2.bind_tools(tools)
 
-        last_task = executor_run(SCENARIO, task, task_context, llm2_with_tools, tools, console, logger)
+        with console.status("[bold green]tool-call: executing tool") as status:
+            last_task_result = executor_run(SCENARIO, task, task_context, llm2_with_tools, tools, console, logger)
+
+logger.info("Result", op="replan_finish", result=result)
+console.print(Panel(result, title="Problem solved!"))

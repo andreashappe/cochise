@@ -1,4 +1,5 @@
-from typing import Union
+from dataclasses import dataclass
+from typing import Union, Dict, List
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
@@ -46,29 +47,13 @@ If no more steps are needed to solve the objective, then respond with that.
 Otherwise, return a new task-plan and the next step to execute as well as all
 context information that the worker needs to execute the task.
 
-# Your original task-plan was this:
-
 {plan}
 
-# You have recently executed the following command
-
-Integrate findings and results from this commands into the task plan
-
-## Task
-
 {last_task}
-
-## Summarized Results
-
-{last_summary}
-
-## Executed Steps
-
-{history}
 """
 
 ### Planner component: response data-type (main type: Act)
-class Plan(BaseModel):
+class PlanProgressing(BaseModel):
     """Plan to follow in future"""
 
     steps: str = Field(
@@ -83,14 +68,14 @@ class Plan(BaseModel):
         description = "Context for worker that executes the next step"
     )
 
-class Response(BaseModel):
+class PlanFinished(BaseModel):
     """Response to user."""
     response: str
 
-class Act(BaseModel):
+class PlanResult(BaseModel):
     """Action to perform."""
 
-    action: Union[Response, Plan] = Field(
+    action: Union[PlanFinished, PlanProgressing] = Field(
         description="Action to perform. If you want to respond to user, use Response. "
         "If you need to further use tools to get the answer, use Plan."
     )
@@ -102,41 +87,80 @@ class PlanExecute(TypedDict):
     last_summary: str
     history: str
 
-def perform_planning_step(llm, task, plan, last_task, logger):
+@dataclass
+class ExecutedTask:
+    task: str
+    summary: str
+    cmd_history: List[Dict[str, str]]
+
+    def history_as_string(self) -> str:
+        commands = []
+        for x in self.cmd_history:
+            tool = x['tool']
+            cmd = x['cmd']
+            result = x['result'].replace("\r", '')
+            commands.append(f"""
+## Tool call: {tool}
+
+```bash
+$ {cmd}
+
+{result}
+```
+""")
+        return "\n".join(commands)
+    
+def plan_txt(plan):
+    if plan == None or plan == '':
+        return """
+# You have no task plan yet, generate a new plan.
+"""
+    else:
+        return f"""
+# Your original task-plan was this:
+
+{plan}
+"""
+
+def last_task_txt(last_task):
+    if last_task == None:
+        return ''
+    else:
+        return f"""
+# You have recently executed the following command
+
+Integrate findings and results from this commands into the task plan
+
+## Task
+
+{last_task.task}
+
+## Summarized Results
+
+{last_task.summary}
+
+## Executed Steps
+
+{last_task.history_as_string()}
+"""
+
+def perform_planning_step(llm, task, logger, plan=None, last_task=None):
     replanner = PromptTemplate.from_template(PLANNER_PROMPT)
 
     state = PlanExecute(
         user_input = task,
-        plan = plan,
-        history = last_task.history_as_string(),
-        last_task = last_task,
-        last_summary = last_task.summary
+        plan = plan_txt(plan),
+        last_task = last_task_txt(last_task)
     )
-    prompt=replanner.format(user_input=task, plan=state['plan'], last_task=state["last_task"], last_summary=state["last_summary"], history=state["history"])
-    logger.debug("planning_prompt", prompt=prompt)
+    prompt=replanner.format(user_input=task, plan=plan_txt(plan), last_task=last_task_txt(last_task))
+    logger.debug("pre_planning_prompt", prompt=prompt)
     print(prompt)
     
-    replanner = replanner | llm.with_structured_output(Act)
+    replanner = replanner | llm.with_structured_output(PlanResult, include_raw=True)
+    result = replanner.invoke(state)
+    metadata=result['raw'].response_metadata
+    print(str(metadata))
 
-    return replanner.invoke(state)
+    logger.debug("planning_prompt_finished", prompt=prompt, metadata=metadata)
 
-def perform_initial_step(llm, task, logger):
-    replanner = PromptTemplate.from_template(PLANNER_PROMPT)
-
-    state = PlanExecute(
-        user_input = task,
-        plan = 'no plan yet',
-        history = "nothing executed yet",
-        last_task = "no task selected yet",
-        last_summary = "nothing executed yet"
-    )
-
-    print(str(state))
-
-    prompt=replanner.format(user_input=task, plan=state['plan'], last_task=state["last_task"], last_summary=state["last_summary"], history=state["history"])
-    logger.debug("planning_prompt", prompt=prompt)
-    print(prompt)
-    
-    replanner = replanner | llm.with_structured_output(Act)
-
-    return replanner.invoke(state)
+    return result['parsed']
