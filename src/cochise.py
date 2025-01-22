@@ -1,3 +1,4 @@
+import asyncio
 import structlog
 
 from dotenv import load_dotenv
@@ -9,7 +10,7 @@ from common import get_or_fail
 from datetime import datetime
 from executor import executor_run, ExecutedTask
 from ptt import perform_planning_step, PlanFinished, PlanProgressing, PlanResult
-from ssh import get_ssh_connection_from_env, SshExecuteTool
+from kalissh import get_ssh_connection_from_env, SshExecuteTool
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -41,7 +42,6 @@ console = Console()
 load_dotenv()
 get_or_fail("OPENAI_API_KEY") # langgraph will use this env variable itself
 conn = get_ssh_connection_from_env()
-conn.connect()
 
 SCENARIO = """
 You are a professional penetration tester and are tasked to secure a Microsoft
@@ -66,34 +66,38 @@ Heed the following rules:
 # create the graph
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
-plan:str = ''
-last_task_result: ExecutedTask = None
-planning_result: PlanResult = None
+async def main(llm, conn):
+    plan:str = ''
+    last_task_result: ExecutedTask = None
+    planning_result: PlanResult = None
 
-while not isinstance(planning_result, PlanFinished):
+    # open SSH connection
+    await conn.connect()
 
-    with console.status("[bold green]llm-call: updating plan and selecting next task") as status:
-        console.print("Analyzing and Updating task plan..")
-        logger.info("Updating existing Plan", op="replan_call", old_plan=plan)
-        result = perform_planning_step(llm, SCENARIO, logger, plan, last_task_result).action
+    while not isinstance(planning_result, PlanFinished):
 
-    if isinstance(result, PlanProgressing):
-        plan = result.steps
-        task = result.next_step
-        task_context =result.next_step_context
+        with console.status("[bold green]llm-call: updating plan and selecting next task") as status:
+            console.log("Analyzing and Updating task plan..")
+            logger.info("Updating existing Plan", op="replan_call", old_plan=plan)
+            result = perform_planning_step(llm, SCENARIO, logger, plan, last_task_result).action
 
-        logger.info("Next Step decided", op="replan_done", updated_plan=plan, next_step=task)
-        console.print(Panel(Markdown(plan), title='Updated Plan'))
-        console.print(Panel(task, title='Next Step'))
-        console.print(Panel(task_context, title='Next Step Context'))
+        if isinstance(result, PlanProgressing):
+            plan = result.steps
+            task = result.next_step
+            task_context =result.next_step_context
 
-        # create a separate LLM instance so that we have a new state
-        llm2 = ChatOpenAI(model="gpt-4o", temperature=0)
-        tools = [SshExecuteTool(conn)]
-        llm2_with_tools = llm2.bind_tools(tools)
+            logger.info("Next Step decided", op="replan_done", updated_plan=plan, next_step=task)
+            console.print(Panel(plan, title='Updated Plan'))
+            console.print(Panel(f"# Next Step\n\n{task}\n\n# Context\n\n{task_context}", title='Next Step'))
 
-        with console.status("[bold green]tool-call: executing tool") as status:
-            last_task_result = executor_run(SCENARIO, task, task_context, llm2_with_tools, tools, console, logger)
+            # create a separate LLM instance so that we have a new state
+            llm2 = ChatOpenAI(model="gpt-4o", temperature=0)
+            tools = [SshExecuteTool(conn)]
+            llm2_with_tools = llm2.bind_tools(tools)
 
-logger.info("Result", op="replan_finish", result=result)
-console.print(Panel(result, title="Problem solved!"))
+            last_task_result = await executor_run(SCENARIO, task, task_context, llm2_with_tools, tools, console, logger)
+
+    logger.info("Result", op="replan_finish", result=result)
+    console.print(Panel(result, title="Problem solved!"))
+
+asyncio.run(main(llm, conn))

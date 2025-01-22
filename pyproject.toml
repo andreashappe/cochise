@@ -11,6 +11,7 @@ dependencies = [
     "langchain-openai>=0.2.2",
     "python-dotenv>=1.0.1",
     "rich>=13.9.2",
-    "structlog>=25.1"
+    "structlog>=25.1",
+    "asyncssh"
 ]
 requires-python = ">= 3.8"

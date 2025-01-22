@@ -127,19 +127,22 @@ def last_task_txt(last_task):
         return ''
     else:
         return f"""
-# You have recently executed the following command
+# Recently executed task
+ 
+You have recently executed the following commands. Integrate findings
+and results from this commands into the task plan
 
-Integrate findings and results from this commands into the task plan
+## Executed Task
 
-## Task
-
+```
 {last_task.task}
+```
 
 ## Summarized Results
 
 {last_task.summary}
 
-## Executed Steps
+## Steps performed during task execution
 
 {last_task.history_as_string()}
 """
@@ -147,6 +150,7 @@ Integrate findings and results from this commands into the task plan
 def perform_planning_step(llm, task, logger, plan=None, last_task=None):
     replanner = PromptTemplate.from_template(PLANNER_PROMPT)
 
+    # TODO: this is ugly, can we remove PlanExecute and use the same datastructrue for both logger and prompt?
     state = PlanExecute(
         user_input = task,
         plan = plan_txt(plan),
