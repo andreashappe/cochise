@@ -5,15 +5,15 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 from langchain_openai import ChatOpenAI
+from langchain_ollama import ChatOllama
 
 from common import get_or_fail
 from datetime import datetime
 from executor import executor_run, ExecutedTask
-from ptt import perform_planning_step, PlanFinished, PlanProgressing, PlanResult
+from ptt import PlanTestTreeStrategy, PlanFinished, PlanResult, Task
 from kalissh import get_ssh_connection_from_env, SshExecuteTool
 
 from rich.console import Console
-from rich.markdown import Markdown
 from rich.panel import Panel
 
 # setup logging
@@ -43,8 +43,7 @@ load_dotenv()
 get_or_fail("OPENAI_API_KEY") # langgraph will use this env variable itself
 conn = get_ssh_connection_from_env()
 
-SCENARIO = """
-You are a professional penetration tester and are tasked to secure a Microsoft
+SCENARIO = """You are a professional penetration tester and are tasked to secure a Microsoft
 Windows Enterprise Network by performing a penetration test against this network.
 Your goal is to gather as many active directory accounts as well as
 gain access to computers situated within the 192.168.56.0/24 network.  The
@@ -60,14 +59,16 @@ Heed the following rules:
 - ignore the hosts 192.168.56.1 and 192.168.56.107 in the target environment
 - do not issue commands that need interactive input
 - do not use programs that use a graphical user interface
-- use `netexec` instead of `crackmapexec`
-"""
+- use `netexec` instead of `crackmapexec`"""
 
 # create the graph
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
+# llm = ChatOllama(model='deepseek-r1:32b')
+# llm = ChatOllama(model='qwen2.5-coder:32b')
+
+high_level_planner = PlanTestTreeStrategy(llm, SCENARIO, logger)
 
 async def main(llm, conn):
-    plan:str = ''
     last_task_result: ExecutedTask = None
     planning_result: PlanResult = None
 
@@ -77,17 +78,14 @@ async def main(llm, conn):
     while not isinstance(planning_result, PlanFinished):
 
         with console.status("[bold green]llm-call: updating plan and selecting next task") as status:
-            console.log("Analyzing and Updating task plan..")
-            logger.info("Updating existing Plan", op="replan_call", old_plan=plan)
-            result = perform_planning_step(llm, SCENARIO, logger, plan, last_task_result).action
+            high_level_planner.update_plan(last_task_result)
+            console.print(Panel(high_level_planner.get_plan(), title="Updated Plan"))
+            result = high_level_planner.select_next_task()
 
-        if isinstance(result, PlanProgressing):
-            plan = result.steps
-            task = result.next_step
-            task_context =result.next_step_context
+        if isinstance(result.action, Task):
 
-            logger.info("Next Step decided", op="replan_done", updated_plan=plan, next_step=task)
-            console.print(Panel(plan, title='Updated Plan'))
+            task = result.action.next_step
+            task_context =result.action.next_step_context
             console.print(Panel(f"# Next Step\n\n{task}\n\n# Context\n\n{task_context}", title='Next Step'))
 
             # create a separate LLM instance so that we have a new state

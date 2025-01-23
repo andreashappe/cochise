@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import dataclass
 
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 from langchain_core.messages import SystemMessage
@@ -25,6 +26,13 @@ achieve the task, create a summary including new findings.
 
 def is_tool_call(msg) -> bool:
     return hasattr(msg, "tool_calls") and len(msg.tool_calls) > 0
+
+@dataclass
+class ToolResult:
+    tool: str
+    cmd: str
+    finished: bool
+    result: str
 
 async def perform_tool_call(tool_call, tool):
 
