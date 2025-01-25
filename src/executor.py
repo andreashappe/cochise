@@ -7,21 +7,22 @@ from langchain_core.messages import SystemMessage
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeElapsedColumn
 
-from ptt import ExecutedTask
+from ptt import ExecutedTask, Task
 
 PROMPT = """
 To achieve the scenario, focus upon the following task:
                                       
-`{task}`
+`{task.next_step}`
                                       
 You are given the following additional information about the task:
 
 ```                                
-{context}
+{task.next_step_context}
 ```
 
-Perform the task against the target environment. If you were able to
-achieve the task, create a summary including new findings.
+Perform the task against the target environment. If you encounter
+errors, try to solve them. If the task has been achieved, stop
+the execution and state the key finding. Be concise.
 """
 
 def is_tool_call(msg) -> bool:
@@ -46,7 +47,7 @@ async def perform_tool_call(tool_call, tool):
         'result': tool_msg.content
     }
 
-async def executor_run(SCENARIO, task, context, llm2_with_tools, tools, console, logger):
+async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, logger):
 
     # create a string -> tool mapping
     mapping = {}
@@ -68,7 +69,7 @@ async def executor_run(SCENARIO, task, context, llm2_with_tools, tools, console,
     )
 
     # our message history
-    messages = chat_template.format_messages(task=task, context=context)
+    messages = chat_template.format_messages(task=task)
 
     # try to solve our sub-task
     round = 1
@@ -81,14 +82,14 @@ async def executor_run(SCENARIO, task, context, llm2_with_tools, tools, console,
         messages.append(ai_msg)
 
         console.print(Panel(str(ai_msg.response_metadata), title="Tool thinking: LLM costs"))
-        logger.debug("executor_next_promp", result=ai_msg.content, tool_calls=ai_msg.tool_calls, metadata=ai_msg.response_metadata)
+        logger.write_next_cmd_prompt(ai_msg)
 
         if is_tool_call(ai_msg):
 
             # output a summary before we do the acutal tool calls
             result = "\n".join(list(map(lambda x: f"{x['name']}: {x['args']['command']}", ai_msg.tool_calls)))
             console.print(Panel(result, title="Tool Call(s)"))
-            logger.info("Calling Tools", op="tool_call", tools=result)
+            logger.write_tool_calls(result)
 
             tasks = []
             display = {}
@@ -108,6 +109,7 @@ async def executor_run(SCENARIO, task, context, llm2_with_tools, tools, console,
                     task_id = display[tool_msg.tool_call_id]
                     progress.update(task_id, advance=100)
                     progress.console.print(Panel(tool_msg.content, title=f"Tool Result for {result['cmd']}"), markup=False)
+                    logger.write_tool_result(result['cmd'], tool_msg.content)
                     history.append(result)
                     messages.append(tool_msg)
         else:
@@ -118,7 +120,7 @@ async def executor_run(SCENARIO, task, context, llm2_with_tools, tools, console,
 
     # output the result, then return it
     console.print(Panel(summary, title="ExecutorAgent Output"))
-    logger.info("Agent Result!", op="agent_result", result=summary, task=task, executed_commands=history)
+    logger.write_tool_summary(summary)
 
     console.log("Finished low-level executor run..")
 

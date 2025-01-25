@@ -1,11 +1,12 @@
 import pathlib
 
 from dataclasses import dataclass
+from functools import reduce
+from logger import Logger
 from typing import Union, Dict, List
 from pydantic import BaseModel, Field
 
 from langchain_core.prompts import PromptTemplate
-from structlog import BoundLogger
 
 TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
 TEMPLATE_UPDATE = PromptTemplate.from_file(str(TEMPLATE_DIR / 'ptt_update.md.jinja2'), template_format='jinja2')
@@ -43,14 +44,14 @@ class PlanResult(BaseModel):
 
 @dataclass
 class ExecutedTask:
-    task: str
+    task: Task
     summary: str
     cmd_history: List[Dict[str, str]]
     
 class PlanTestTreeStrategy:
 
     plan: str
-    logger: BoundLogger
+    logger: Logger
     scenario: str
 
     def __init__(self, llm, scenario, logger, plan=''):
@@ -61,7 +62,11 @@ class PlanTestTreeStrategy:
 
     def update_plan(self, last_task: ExecutedTask) -> None:
 
-        self.logger.info("Updating existing Plan", op="replan_call", old_plan=self.plan)
+        if last_task != None:
+            history_size = reduce(lambda value, x: value + len(x['cmd']) + len(x['result']), last_task.cmd_history, 0)
+            if history_size >= 100000:
+                print(f"!!! warning: history size {history_size} >= 100.000, removing it to cut down costs")
+                last_task.cmd_history = []
 
         input = {
             'user_input': self.scenario,
@@ -69,7 +74,7 @@ class PlanTestTreeStrategy:
             'last_task': last_task
         }
 
-        print(TEMPLATE_UPDATE.invoke(input).text)
+        self.logger.write_prompt("Updating existing Plan", TEMPLATE_UPDATE.invoke(input).text)
         replanner = TEMPLATE_UPDATE | self.llm.with_structured_output(UpdatedPlan, include_raw=True)
         result = replanner.invoke(input)
 
@@ -86,7 +91,7 @@ class PlanTestTreeStrategy:
             'plan': self.plan,
         }
 
-        print(TEMPLATE_NEXT.invoke(input).text)
+        self.logger.write_prompt("Selecting next task", TEMPLATE_NEXT.invoke(input).text)
         select = TEMPLATE_NEXT | self.llm.with_structured_output(PlanResult, include_raw=True)
         result = select.invoke(input)
 
