@@ -84,7 +84,7 @@ class PlanTestTreeStrategy:
 
         self.plan = result['parsed'].plan
 
-    def select_next_task(self) -> PlanResult:
+    def select_next_task(self, llm=None) -> PlanResult:
 
         input = {
             'user_input': self.scenario,
@@ -92,7 +92,11 @@ class PlanTestTreeStrategy:
         }
 
         self.logger.write_prompt("Selecting next task", TEMPLATE_NEXT.invoke(input).text)
-        select = TEMPLATE_NEXT | self.llm.with_structured_output(PlanResult, include_raw=True)
+
+        if llm == None:
+            llm = self.llm
+
+        select = TEMPLATE_NEXT | llm.with_structured_output(PlanResult, include_raw=True)
         result = select.invoke(input)
 
         # output tokens
