@@ -20,9 +20,12 @@ You are given the following additional information about the task:
 {task.next_step_context}
 ```
 
-Perform the task against the target environment. If you encounter
-errors, try to solve them. If the task has been achieved, stop
-the execution and state the key finding. Be concise.
+Perform the task against the target environment. You have up to
+{max} tries to achieve this, stop if you were not able to achieve this.
+
+If you encounter errors, try to solve them.
+
+If the task has been achieved or you reached the maximum allowed try count, stop the execution and state the key finding. Be concise but include the concrete findings that you can gather from the existing output. Include findings that are not directly related to your task too.
 """
 
 def is_tool_call(msg) -> bool:
@@ -58,7 +61,7 @@ async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, lo
     history = []
 
     # how many rounds will we do?
-    MAX_ROUNDS: int = 5
+    MAX_ROUNDS: int = 10
 
     # the initial prompt
     chat_template = ChatPromptTemplate.from_messages(
@@ -69,11 +72,11 @@ async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, lo
     )
 
     # our message history
-    messages = chat_template.format_messages(task=task)
+    messages = chat_template.format_messages(task=task, max=(MAX_ROUNDS-1))
 
     # try to solve our sub-task
     round = 1
-    summary = "Was not able to achieve task"
+    summary = None
     console.log("Starting low-level executor run..")
     while round <= MAX_ROUNDS:
 
@@ -117,6 +120,9 @@ async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, lo
             summary = ai_msg.content
             break
         round = round + 1
+
+    # TODO: create a new summary if we were not able to achieve the task within $steps
+    assert(summary != None)
 
     # output the result, then return it
     console.print(Panel(summary, title="ExecutorAgent Output"))
