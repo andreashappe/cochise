@@ -2,7 +2,7 @@ import asyncio
 from dataclasses import dataclass
 
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeElapsedColumn
@@ -121,7 +121,12 @@ async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, lo
             break
         round = round + 1
 
-    # TODO: create a new summary if we were not able to achieve the task within $steps
+    # create a new summary if we were not able to achieve the task within $steps
+    if summary == None:
+            messages.append(HumanMessage(content="You ran into a timeout and cannot further explore your task. Plese provide a containing findings that arose while trying to solve the task"))
+            summary_msg = llm2_with_tools.invoke(messages)
+            summary = summary_msg.content
+
     assert(summary != None)
 
     # output the result, then return it
