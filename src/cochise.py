@@ -181,6 +181,80 @@ old_state = """1. Initial Reconnaissance
 5.2. If Domain Admin credentials are obtained, confirm domain dominance.
 5.3. Document all compromised accounts and systems, focusing on the Domain Admin account as the ultimate objective."""
 
+asrep_run="""
+1. Perform basic network reconnaissance
+1.1. (Done) Use nmap (via eth1) to discover hosts on 192.168.56.0/24, excluding 192.168.56.1 and 192.168.56.107.
+   • Discovered hosts: 192.168.56.10 (KINGSLANDING), 192.168.56.11 (WINTERFELL), 192.168.56.12 (MEEREEN), 192.168.56.22 (CASTELBLACK), 192.168.56.23 (BRAAVOS), and 192.168.56.100.
+   • Potential domain controllers with Kerberos/LDAP: 192.168.56.10 and 192.168.56.11 (sevenkingdoms.local), 192.168.56.12 (essos.local).
+   • 192.168.56.22 (CASTELBLACK) and 192.168.56.23 (BRAAVOS) are Windows hosts running IIS and SQL.
+   • 192.168.56.100 has filtered ports, no services identified.
+1.2. Note down Windows systems and likely domain controllers for next steps.
+
+2. Enumerate domain information
+2.1. (Done) Attempt domain user enumeration on discovered domain controllers (192.168.56.10, 192.168.56.11, 192.168.56.12) using netexec (via eth1) with null or guest sessions.
+   • Null sessions not allowed; no user info discovered.
+2.2. Collect any usernames or domain details for use in later steps.
+   • Currently no valid credentials.
+2.3. (Done) Attempt SMB enumeration via netexec smb (via eth1) on discovered DCs and Windows hosts.
+   • Guest disabled on DCs. Guest works on CASTELBLACK and BRAAVOS.
+2.4. (Done) Explore SMB shares on CASTELBLACK (192.168.56.22) via guest access.
+   • Retrieved “arya.txt” from the "all" share. No credentials found.
+2.5. (Done) Explore SMB shares on BRAAVOS (192.168.56.23) via guest access.
+   • "all" share is accessible but empty; "public" and "CertEnroll" shares require valid credentials.
+2.6. Summarize SMB findings from CASTELBLACK and BRAAVOS to inform future credential acquisition.
+
+3. Attempt credential-based enumeration
+3.1. (Done) Use potential user names from /root/osint_users.txt to attempt a limited password-spraying approach (via eth1) against the known domain controllers (avoid lockouts).
+   • No valid credentials found.
+   • Notable result: robert.baratheon on KINGSLANDING returned STATUS_ACCOUNT_RESTRICTION.
+3.2. If valid credentials are found, attempt accessing BRAAVOS’ (192.168.56.23) "public" and "CertEnroll" shares and re-check CASTELBLACK (192.168.56.22) for additional restricted shares.
+3.3. (Done) Investigate the STATUS_ACCOUNT_RESTRICTION for robert.baratheon on KINGSLANDING.
+   • LDAP queries confirm the account has specific restrictions; no additional info without valid credentials.
+3.4. (Done) Attempt additional careful password-spraying with a different common password while avoiding account lockouts.
+   • All attempts resulted in STATUS_LOGON_FAILURE except for robert.baratheon, which still returned STATUS_ACCOUNT_RESTRICTION.
+   • No valid credentials obtained.
+3.5. Investigate alternate methods (e.g., obtaining password hashes, offline cracking, or discovering local exploits on accessible hosts) to gain domain foothold.
+   3.5.1. (Done) Attempt Kerberos-based attacks (e.g. AS-REP roasting) if possible without valid creds.
+       • Discovered an AS-REP hash for missandei@ESSOS.LOCAL.
+       • No vulnerable accounts in sevenkingdoms.local.
+   3.5.2. Seek additional methods to harvest credentials or hashes from writable shares, captured traffic, or local Windows systems.
+       3.5.2.1. (Attempted) Attempt to crack the retrieved AS-REP hash for missandei@ESSOS.LOCAL offline.
+           • Obtained a $krb5asrep$23$-style hash, but hashcat and John refused to load it.
+           • Tools show formatting or separator issues, preventing a successful crack.
+           3.5.2.1.1. (Done) Verify the AS-REP hash extraction for Missandei, ensure correct format, and re-dump if necessary.
+               • The hash was successfully re-extracted, but still not recognized by hashcat or John.
+           3.5.2.1.2. (Done) Investigate formatting and compatibility issues with the extracted AS-REP hash.
+               • Hashcat v6.2.6 and John confirm $krb5asrep$23 format is supported.
+               • Possibly missing certain formatting elements or encountering partial data.
+           3.5.2.1.3. (Done) Verify or correct the hash format:
+               • Re-extract using impacket-GetNPUsers with the correct syntax.
+               • Confirm the format includes $krb5asrep$23$<username>@<realm>:<salt>$<hash>.
+               • Attempt cracking again with updated hash.
+           3.5.2.1.4. If still uncrackable after verifying format, consider alternative paths to compromise essos.local.
+       3.5.2.2. If the password is cracked, use those credentials to attempt lateral movement and further enumeration of the essos.local domain.
+           • (Newly discovered) The password for missandei@ESSOS.LOCAL is fr3edom.
+           3.5.2.2.1. (Done) Attempt domain enumeration against 192.168.56.12 (MEEREEN) using Missandei’s credentials.
+               • Additional domain users: ESSOS\\Administrator, ESSOS\\daenerys.targaryen, ESSOS\\drogon, ESSOS\\jorah.mormont, ESSOS\\khal.drogo, ESSOS\\sql_svc, ESSOS\\vagrant, ESSOS\\viserys.targaryen.
+               • Builtin\\Administrators group: Administrator, vagrant, daenerys.targaryen.
+               • Accessible shares on MEEREEN: IPC$ (READ/WRITE), NETLOGON (READ), SYSVOL (READ).
+           3.5.2.2.2. Check for accessible shares, user/group listings, and potential local administrator privileges on MEEREEN or other ESSOS.LOCAL systems.
+           3.5.2.2.3. If higher privileges are obtained, proceed toward domain administrator compromise within essos.local.
+
+4. Further actions with Missandei’s ESSOS.LOCAL credentials
+4.1. (Done) Examine NETLOGON and SYSVOL shares for any stored scripts, credentials, or vulnerabilities (using read access).
+   • No scripts or credentials found.
+   • Policies directory has subfolders: {31B2F340-016D-11D2-945F-00C04FB984F9}, {6AC1786C-016F-11D2-945F-00C04fB984F9}, {764D954D-BAEA-4079-A104-FCB6D2013618}.
+4.1.1. (Done) Investigate contents of the Policies subdirectories to identify potential GPO misconfigurations or leftover credentials.
+   • Retrieved comment.cmtx from {764D954D-BAEA-4079-A104-FCB6D2013618}\\Machine; contains only policy comment XML.
+   • No credentials or misconfigurations found so far.
+4.1.2. Investigate remaining policy files (Registry.pol, GptTmpl.inf, GPT.ini) in the relevant subdirectories to ensure no hardcoded credentials or misconfigurations.
+4.2. (Done) Investigate whether Missandei’s account has local admin privileges on 192.168.56.12 (MEEREEN) or other ESSOS systems.
+   • Msandei’s credentials are valid for MEEREEN but she is not in the local Administrators group.
+   • She may still have regular user-level access to other ESSOS systems.
+4.3. Explore read/write permissions on the IPC$ share for possible file dropping or service abuse leading to privilege escalation.
+4.4. Check for any domain trusts between essos.local and sevenkingdoms.local.
+4.5. Attempt additional lateral movement or privilege escalation paths using discovered group memberships, focusing on Administrator, daenerys.targaryen, or vagrant."""
+
 old_state=''
 high_level_planner = PlanTestTreeStrategy(llm, SCENARIO, logger, plan = old_state)
 
