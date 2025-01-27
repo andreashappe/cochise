@@ -1,10 +1,15 @@
 import asyncio
 from dataclasses import dataclass
+from enum import Enum
+from typing import List
 
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
 
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
 from rich.panel import Panel
+from rich.pretty import Pretty
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeElapsedColumn
 
 from ptt import ExecutedTask, Task
@@ -50,6 +55,25 @@ async def perform_tool_call(tool_call, tool):
         'result': tool_msg.content
     }
 
+class PostAnalysis(BaseModel):
+    """This contains all findings such as missed opportunities, gathered facts, etc. from the current task-solving run."""
+
+    findings: List[str] = Field(
+        description = "A list of gathered findings/facts. These may related to the task but this is not required."
+    )
+
+    not_working: List[str] = Field(
+        description = "A list of attempted commands that did not work out."
+    )
+
+    problems: List[str] = Field(
+        description = "A list of problems that occured during task execution."
+    )
+
+    opportunities: List[str] = Field(
+        description = "A list of potential new opportunities and leads. These may be related to the task but this is not required." 
+    )
+
 async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, logger):
 
     # create a string -> tool mapping
@@ -84,8 +108,14 @@ async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, lo
             ai_msg = llm2_with_tools.invoke(messages)
         messages.append(ai_msg)
 
-        console.print(Panel(str(ai_msg.response_metadata), title="Tool thinking: LLM costs"))
-        logger.write_next_cmd_prompt(ai_msg)
+        logger.write_llm_call('executor_next_cmds', prompt='',
+                              result={
+                                'content': ai_msg.content,
+                                'tool_calls': ai_msg.tool_calls
+                              },
+                              costs=ai_msg.response_metadata)
+
+        print(str(ai_msg.response_metadata))
 
         if is_tool_call(ai_msg):
 
@@ -112,7 +142,7 @@ async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, lo
                     task_id = display[tool_msg.tool_call_id]
                     progress.update(task_id, advance=100)
                     progress.console.print(Panel(tool_msg.content, title=f"Tool Result for {result['cmd']}"), markup=False)
-                    logger.write_tool_result(result['cmd'], tool_msg.content)
+                    logger.write_executor_tool_call('executor_cmd', result['cmd'], '?', tool_msg.content)
                     history.append(result)
                     messages.append(tool_msg)
         else:
@@ -125,13 +155,22 @@ async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, lo
     if summary == None:
             messages.append(HumanMessage(content="You ran into a timeout and cannot further explore your task. Plese provide a containing findings that arose while trying to solve the task"))
             summary_msg = llm2_with_tools.invoke(messages)
+            logger.write_llm_call('executor_summary_missing', prompt='',
+                              result=summary_msg.content,
+                              costs=summary_msg.response_metadata)
+            messages.append(summary_msg)
             summary = summary_msg.content
 
     assert(summary != None)
 
     # output the result, then return it
     console.print(Panel(summary, title="ExecutorAgent Output"))
-    logger.write_tool_summary(summary)
+
+    # try to get a list of findings (disabled for now)
+    #llm_gpt4 = ChatOpenAI(model="gpt-4o", temperature=0)
+    #messages.append(HumanMessage(content="Go through the commands and their outputs again and provide a list of findings and potential opportunities."))
+    #findings = llm_gpt4.with_structured_output(PostAnalysis).invoke(messages)
+    #console.print(Pretty(findings))
 
     console.log("Finished low-level executor run..")
 

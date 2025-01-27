@@ -65,20 +65,24 @@ Tool-specific guidance:
 - you can use multiple hostnames/ips with `nmap` by separating them with spaces not commas
 - take extra care when interpreting tool output regarding successful user authentication and Active Directory guest accounts. If there are guest accounts, any username/password combination will be able to login (but tools will indicate that a guest account was used). Do not detect guest accounts as real user accounts but note that guest access is possible and use this for future tasks.
 - Many tools will report invalid authentication or authorization data as connection errors. You can assume that the target network has a working network.
+- if you want to use tools from the `impacket` package be aware that they are named `impacket-<toolname>', e.g., `secretsdump.py` is named `impacket-secretsdump` (not that the `.py` is also removed)
+    - it's `impacket-GetNPUsers` not `impacket-getNPUsers`
 """
 
 # create the graph
-llm = ChatOpenAI(model="o1")
-llm3 = ChatOpenAI(model="gpt-4o", temperature=0)
+# llm_o1 = ChatOpenAI(model="o1")
+llm_o1 = ChatOpenAI(model="gpt-4o")
+llm_gpt4 = ChatOpenAI(model="gpt-4o", temperature=0)
 # llm = ChatOllama(model='deepseek-r1:32b')
 # llm = ChatOllama(model='qwen2.5-coder:32b')
 
 # re-use an old stored state? if not, set old_state to ''
-old_state = Path('examples/states/spraying_into_sysvol.txt').read_text()
+# old_state = Path('examples/states/spraying_into_sysvol.txt').read_text()
+old_state = ''
 
-high_level_planner = PlanTestTreeStrategy(llm, SCENARIO, logger, plan = old_state)
+high_level_planner = PlanTestTreeStrategy(llm_o1, SCENARIO, logger, plan = old_state)
 
-async def main(llm, conn):
+async def main(conn):
     last_task_result: ExecutedTask = None
     planning_result: PlanResult = None
 
@@ -92,15 +96,13 @@ async def main(llm, conn):
             console.print(Panel(high_level_planner.get_plan(), title="Updated Plan"))
             result = high_level_planner.select_next_task()
 
-            #result = high_level_planner.select_next_task(llm3)
+            #result = high_level_planner.select_next_task(llm_gpt4)
             #console.print(Panel(str(result2), title="Potential alternative answer done by GPT-4o"))
-
 
         if isinstance(result.action, Task):
 
             task = result.action
             console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
-            logger.write_next_task(task.next_step, task.next_step_context)
 
             # create a separate LLM instance so that we have a new state
             llm2 = ChatOpenAI(model="gpt-4o", temperature=0)
@@ -112,4 +114,4 @@ async def main(llm, conn):
     logger.write_line(f"run-finsished; result: {str(result)}")
     console.print(Panel(result, title="Problem solved!"))
 
-asyncio.run(main(llm, conn))
+asyncio.run(main(conn))

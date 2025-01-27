@@ -40,24 +40,20 @@ class Logger:
         handler.setFormatter(formatter)
         self.file_logger.addHandler(handler)
 
-    def write_prompt(self, description, prompt):
-        self.logger.info(description, prompt=prompt)
-        self.file_logger.info(f"{description}\n{prompt}")
+    def write_llm_call(self, name, prompt, result, costs):
+        self.logger.info(name, prompt=prompt, result=result, costs=costs)
+        self.file_logger.info(f"{name}\n{prompt}")
+        self.file_logger.info(f"{name} result\n{result}")
+        self.file_logger.info(f"{name} costs\n{str(costs)}")
 
-    def write_next_cmd_prompt(self, ai_msg):
-        self.logger.debug("executor_next_promp", result=ai_msg.content, tool_calls=ai_msg.tool_calls, metadata=ai_msg.response_metadata)
+    def write_executor_tool_call(self, name, cmd, exit_code, result):
+        self.logger.info(name, cmd=cmd, exit_code=exit_code, result=result)
 
     def write_tool_calls(self, tools):
         self.file_logger.info(f"Upcoming Tool calls:\n{tools}")
 
     def write_tool_summary(self, summary):
         self.file_logger.info(f"Tool call summary:\n{summary}")
-
-    def write_tool_result(self, cmd, result):
-        self.file_logger.info(f"Tool call result for {cmd}:\n{result}")
-
-    def write_next_task(self, next_step, next_step_context):
-        self.file_logger.info(f"Next Task selected!\n{next_step}\n\nContext:\n{next_step_context}")
 
     def write_line(self, line):
         self.logger.info(line)

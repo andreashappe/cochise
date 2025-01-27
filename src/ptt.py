@@ -74,13 +74,18 @@ class PlanTestTreeStrategy:
             'last_task': last_task
         }
 
-        self.logger.write_prompt("Updating existing Plan", TEMPLATE_UPDATE.invoke(input).text)
         replanner = TEMPLATE_UPDATE | self.llm.with_structured_output(UpdatedPlan, include_raw=True)
         result = replanner.invoke(input)
 
         # output tokens
         metadata=result['raw'].response_metadata
         print(str(metadata))
+
+
+        self.logger.write_llm_call('strategy_update', 
+                                   TEMPLATE_UPDATE.invoke(input).text,
+                                   result['parsed'].plan,
+                                   result['raw'].response_metadata)
 
         self.plan = result['parsed'].plan
 
@@ -91,8 +96,6 @@ class PlanTestTreeStrategy:
             'plan': self.plan,
         }
 
-        self.logger.write_prompt("Selecting next task", TEMPLATE_NEXT.invoke(input).text)
-
         if llm == None:
             llm = self.llm
 
@@ -100,8 +103,21 @@ class PlanTestTreeStrategy:
         result = select.invoke(input)
 
         # output tokens
-        metadata=result['raw'].response_metadata
-        print(str(metadata))
+        print(str(result['raw'].response_metadata))
+
+        if isinstance(result['parsed'].action, PlanFinished):
+            self.logger.write_llm_call('strategy_finished', 
+                                       TEMPLATE_NEXT.invoke(input).text,
+                                       result['parsed'].action.response,
+                                       result['raw'].response_metadata)
+        else:
+            self.logger.write_llm_call('strategy_next_task', 
+                                       TEMPLATE_NEXT.invoke(input).text,
+                                       {
+                                            'next_step': result['parsed'].action.next_step,
+                                            'next_step_context': result['parsed'].action.next_step_context
+                                       },
+                                       result['raw'].response_metadata)
         return result['parsed']
     
     def get_plan(self) -> str:
