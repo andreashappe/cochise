@@ -40,11 +40,11 @@ class Logger:
         handler.setFormatter(formatter)
         self.file_logger.addHandler(handler)
 
-    def write_llm_call(self, name, prompt, result, costs):
-        self.logger.info(name, prompt=prompt, result=result, costs=costs)
+    def write_llm_call(self, name, prompt, result, costs, duration=-1):
+        self.logger.info(name, prompt=prompt, result=result, costs=costs, duration=duration)
         self.file_logger.info(f"{name}\n{prompt}")
         self.file_logger.info(f"{name} result\n{result}")
-        self.file_logger.info(f"{name} costs\n{str(costs)}")
+        self.file_logger.info(f"{name} costs\n{str(costs)}\tduration: {str(duration)}")
 
     def write_executor_tool_call(self, name, cmd, exit_code, result):
         self.logger.info(name, cmd=cmd, exit_code=exit_code, result=result)

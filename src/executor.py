@@ -1,15 +1,14 @@
 import asyncio
+import datetime
+
 from dataclasses import dataclass
-from enum import Enum
 from typing import List
 
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from rich.panel import Panel
-from rich.pretty import Pretty
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeElapsedColumn
 
 from ptt import ExecutedTask, Task
@@ -105,7 +104,10 @@ async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, lo
     while round <= MAX_ROUNDS:
 
         with console.status("[bold green]executor: thinking") as status:
+            tik = datetime.datetime.now()
             ai_msg = llm2_with_tools.invoke(messages)
+            tok = datetime.datetime.now()
+
         messages.append(ai_msg)
 
         logger.write_llm_call('executor_next_cmds', prompt='',
@@ -113,7 +115,8 @@ async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, lo
                                 'content': ai_msg.content,
                                 'tool_calls': ai_msg.tool_calls
                               },
-                              costs=ai_msg.response_metadata)
+                              costs=ai_msg.response_metadata,
+                              duration=(tok-tik).total_seconds())
 
         print(str(ai_msg.response_metadata))
 
@@ -154,10 +157,13 @@ async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, lo
     # create a new summary if we were not able to achieve the task within $steps
     if summary == None:
             messages.append(HumanMessage(content="You ran into a timeout and cannot further explore your task. Plese provide a containing findings that arose while trying to solve the task"))
+            tik = datetime.datetime.now()
             summary_msg = llm2_with_tools.invoke(messages)
+            tok = datetime.datetime.now()
             logger.write_llm_call('executor_summary_missing', prompt='',
                               result=summary_msg.content,
-                              costs=summary_msg.response_metadata)
+                              costs=summary_msg.response_metadata,
+                              duration=(tok-tik).total_seconds())
             messages.append(summary_msg)
             summary = summary_msg.content
 

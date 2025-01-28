@@ -1,3 +1,4 @@
+import datetime
 import pathlib
 
 from dataclasses import dataclass
@@ -75,7 +76,9 @@ class PlanTestTreeStrategy:
         }
 
         replanner = TEMPLATE_UPDATE | self.llm.with_structured_output(UpdatedPlan, include_raw=True)
+        tik = datetime.datetime.now()
         result = replanner.invoke(input)
+        tok = datetime.datetime.now()
 
         # output tokens
         metadata=result['raw'].response_metadata
@@ -85,7 +88,8 @@ class PlanTestTreeStrategy:
         self.logger.write_llm_call('strategy_update', 
                                    TEMPLATE_UPDATE.invoke(input).text,
                                    result['parsed'].plan,
-                                   result['raw'].response_metadata)
+                                   result['raw'].response_metadata,
+                                   (tok-tik).total_seconds())
 
         self.plan = result['parsed'].plan
 
@@ -100,7 +104,9 @@ class PlanTestTreeStrategy:
             llm = self.llm
 
         select = TEMPLATE_NEXT | llm.with_structured_output(PlanResult, include_raw=True)
+        tik = datetime.datetime.now()
         result = select.invoke(input)
+        tok = datetime.datetime.now()
 
         # output tokens
         print(str(result['raw'].response_metadata))
@@ -109,7 +115,8 @@ class PlanTestTreeStrategy:
             self.logger.write_llm_call('strategy_finished', 
                                        TEMPLATE_NEXT.invoke(input).text,
                                        result['parsed'].action.response,
-                                       result['raw'].response_metadata)
+                                       result['raw'].response_metadata,
+                                       (tok-tik).total_seconds())
         else:
             self.logger.write_llm_call('strategy_next_task', 
                                        TEMPLATE_NEXT.invoke(input).text,
@@ -117,7 +124,8 @@ class PlanTestTreeStrategy:
                                             'next_step': result['parsed'].action.next_step,
                                             'next_step_context': result['parsed'].action.next_step_context
                                        },
-                                       result['raw'].response_metadata)
+                                       result['raw'].response_metadata,
+                                       (tok-tik).total_seconds())
         return result['parsed']
     
     def get_plan(self) -> str:

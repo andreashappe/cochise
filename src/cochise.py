@@ -9,7 +9,7 @@ from common import get_or_fail
 from executor import executor_run, ExecutedTask
 from pathlib import Path
 from ptt import PlanTestTreeStrategy, PlanFinished, PlanResult, Task
-from kalissh import get_ssh_connection_from_env, SshExecuteTool
+from kalissh import get_ssh_connection_from_env, SshExecuteTool, SSHConnection
 
 from rich.console import Console
 from rich.panel import Panel
@@ -71,7 +71,7 @@ Tool-specific guidance:
 
 # create the graph
 # llm_o1 = ChatOpenAI(model="o1")
-llm_o1 = ChatOpenAI(model="gpt-4o")
+llm_o1 = ChatOpenAI(model="o1")
 llm_gpt4 = ChatOpenAI(model="gpt-4o", temperature=0)
 # llm = ChatOllama(model='deepseek-r1:32b')
 # llm = ChatOllama(model='qwen2.5-coder:32b')
@@ -82,7 +82,7 @@ old_state = ''
 
 high_level_planner = PlanTestTreeStrategy(llm_o1, SCENARIO, logger, plan = old_state)
 
-async def main(conn):
+async def main(conn:SSHConnection) -> None:
     last_task_result: ExecutedTask = None
     planning_result: PlanResult = None
 

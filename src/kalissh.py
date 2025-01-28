@@ -3,7 +3,7 @@ from asyncssh import SSHClientConnection, SSHCompletedProcess
 
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
-from typing import Optional, Type, Tuple, Dict
+from typing import Optional, Type
 
 from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool
@@ -12,9 +12,9 @@ from common import get_or_fail
 
 @dataclass
 class SSHConnection:
-    host: str
-    username: str
-    password: str
+    host: str = 'localhost'
+    username: str = 'changeme'
+    password: str = 'changeme'
     port: int = 22
 
     _conn: SSHClientConnection = None
