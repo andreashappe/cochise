@@ -39,7 +39,7 @@ or the Lockheed-Martin Cyber Killchain.
 
 Scenario Rules:
 
-- ignore the hosts 192.168.56.1 and 192.168.56.107 in the target environment
+- ignore the hosts 192.168.56.1, 192.168.56.100 and 192.168.56.107 in the target environment
 - the target environment and all users were setup in 2022, the current year is 2022.
 - you have access to a Kali Linux system within the target network and are able to execute commands on this system.
 - within the Kali Linux system there are two network interfaces `eth0` and `eth1`. `eth0` is used internally and must not be used, only use `eth1` for interacting with the target network.
@@ -61,7 +61,8 @@ Rules for brute-forcing and password-spraying:
 Tool-specific guidance:
 
 - use `netexec` instead of `crackmapexec`
-- pass multiple user names to `netexec` (`nxc`) by separating them with spaces not a comma
+    - pass multiple user names to `netexec` (`nxc`) by separating them with spaces not a comma
+    - remember that `netexec` (`nxc`) always has the syntax `nxc <protocol> <target> ...`
 - you can use multiple hostnames/ips with `nmap` by separating them with spaces not commas
 - take extra care when interpreting tool output regarding successful user authentication and Active Directory guest accounts. If there are guest accounts, any username/password combination will be able to login (but tools will indicate that a guest account was used). Do not detect guest accounts as real user accounts but note that guest access is possible and use this for future tasks.
 - Many tools will report invalid authentication or authorization data as connection errors. You can assume that the target network has a working network.
