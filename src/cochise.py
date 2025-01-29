@@ -96,6 +96,7 @@ async def main(conn:SSHConnection) -> None:
             high_level_planner.update_plan(last_task_result)
             console.print(Panel(high_level_planner.get_plan(), title="Updated Plan"))
             result = high_level_planner.select_next_task()
+            planning_result = result.action
 
             #result = high_level_planner.select_next_task(llm_gpt4)
             #console.print(Panel(str(result2), title="Potential alternative answer done by GPT-4o"))
