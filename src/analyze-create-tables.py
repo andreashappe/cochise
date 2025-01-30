@@ -193,7 +193,9 @@ with open(sys.argv[1], 'r') as file:
                 'duration': j['duration'],
                 'prompt_tokens': j['costs']['token_usage']['prompt_tokens'],
                 'completion_tokens': j['costs']['token_usage']['completion_tokens'],
-                'reasoning_tokens': j['costs']['token_usage']['completion_tokens_details']['reasoning_tokens'], 'cached_tokens': j['costs']['token_usage']['prompt_tokens_details']['cached_tokens'], 'result': j['result'] }
+                'reasoning_tokens': j['costs']['token_usage']['completion_tokens_details']['reasoning_tokens'],
+                'cached_tokens': j['costs']['token_usage']['prompt_tokens_details']['cached_tokens'],
+                'result': j['result'] }
 
             assert(j['costs']['token_usage']['completion_tokens_details']['rejected_prediction_tokens'] == 0)
 
