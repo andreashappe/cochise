@@ -24,8 +24,10 @@ with open(sys.argv[1], 'r') as file:
             console.print(Panel(j['result'], title="Executor ran out of rounds", style='bright_yellow'))
 
         if j['event'] == 'executor_next_cmds':
-            if j['result']['content'] != '':
+            if j['result']['content'] != '' and len(j['result']['tool_calls']) == 0:
                 console.print(Panel(j['result']['content'], title="Executor Result", style='bright_yellow'))
+            elif j['result']['content'] != '':
+                console.print(Panel(j['result']['content'], title="Executor Result"))
             
             if len(j['result']['tool_calls']) > 0:
                 result = "\n".join(list(map(lambda x: f"{x['name']}: {x['args']['command']}", j['result']['tool_calls'])))

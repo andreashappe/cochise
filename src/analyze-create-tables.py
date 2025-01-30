@@ -237,7 +237,7 @@ with open(sys.argv[1], 'r') as file:
             tool_calls['cached_tokens'] += cached_tokens
             assert(j['costs']['token_usage']['completion_tokens_details']['rejected_prediction_tokens'] == 0)
         
-            if j['result']['content'] != '':
+            if j['result']['content'] != '' and len(j['result']['tool_calls']) == 0:
                 # final tool result
                 tool_calls['result'] = j['result']['content']
                 tool_calls['out_of_rounds'] = False
