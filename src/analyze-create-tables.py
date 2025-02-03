@@ -4,6 +4,7 @@ import json
 import sys
 import xlsxwriter
 
+from common import get_or_fail
 from dotenv import load_dotenv
 
 from rich.console import Console
@@ -14,32 +15,8 @@ from langchain_core.prompts import PromptTemplate
 from pathlib import Path
 from pydantic import BaseModel, Field
 
-from common import get_or_fail
 
 console = Console()
-
-class CmdResult(BaseModel):
-    """Analyze the given command and its result"""
-
-    wrong_format: bool = Field(
-            description="The executed command had an invalid parameter and execution was aborted"
-    )
-
-    executable_unknown: bool = Field(
-            description="The executed command did not exist on the target system."
-    )
-
-    successful: bool = Field(
-            description="The executed command was successful."
-    )
-
-    tactic: str = Field(
-            description="This command matches this MITRE ATT&CK tactic"
-    )
-
-    technique: str = Field(
-            description="This command matches this MITRE ATT&CK technique"
-    )
 
 class Task(BaseModel):
     """Analyze the given task"""
@@ -86,23 +63,6 @@ def analyze_task(task, context, result, cmds):
     """).format(task=task, context=context, result=result, cmds=cmds)
 
     return llm.with_structured_output(Task).invoke(prompt)
-
-def tool_call_analysis():
-    prompt = PromptTemplate.from_template("""You executed the following command:
-
-    `{cmd}`
-
-    which yielded the following result:
-
-    ```
-    {result}
-    ```
-
-    Analyze the command according to MITRE ATT&CK.
-    """).format(cmd=data['cmd'], result=data['result'])
-
-    result = llm.with_structured_output(CmdResult).invoke(prompt)
-    console.print(Pretty(result))
 
 def init_tool_calls():
     return {

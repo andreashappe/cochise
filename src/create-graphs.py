@@ -2,8 +2,10 @@
 
 import json
 import math
+import matplotlib.pyplot as plt
 
 from pathlib import Path
+
 from rich.console import Console
 from rich.pretty import Pretty
 
@@ -184,3 +186,104 @@ for i in top_tools[:16]:
     print(f" - {i[0]} -> {i[1]['count']}; run-pct: {i[1]['within_runs_pct']}")
 
 console.print(Pretty(round))
+
+# update duration depending upon prompt size
+x = []
+y = []
+
+for idx in round.keys():
+    i = round[idx]
+
+    for j in i['update_duration']:
+        x.append(j[0])
+        y.append(j[1])
+
+plt.scatter(x, y, marker="*")
+plt.xlabel('token count in update prompt')
+plt.ylabel('duration in sec')
+plt.savefig('update_duration.png')
+plt.clf()
+
+# state size
+x = []
+y = []
+
+for idx in round.keys():
+    i = round[idx]
+
+    for j in i['state']:
+        x.append(idx)
+        y.append(j)
+
+plt.scatter(x, y, marker="*")
+plt.xlabel('strategy round')
+plt.ylabel('state size (plan) in characters')
+plt.savefig('state_size.png')
+plt.clf()
+
+# state size (using input-tokens for next_task as proxy)
+x = []
+y = []
+
+for idx in round.keys():
+    i = round[idx]
+
+    if 'state_tokens' in i:
+        for j in i['state_tokens']:
+            x.append(idx)
+            y.append(j)
+
+plt.scatter(x, y, marker="*")
+plt.xlabel('strategy round')
+plt.ylabel('state size in tokens (using input for next_task as proxy)')
+plt.savefig('state_size_tokens.png')
+plt.clf()
+
+# verhaeltnis update-strategy vs. next-task
+x = []
+y = []
+
+for idx in round.keys():
+    i = round[idx]
+
+    if 'upd_vs_nexttask' in i:
+        for j in i['upd_vs_nexttask']:
+            x.append(idx)
+            y.append(j)
+
+plt.scatter(x, y, marker=".")
+plt.axhline(y = 1, color = 'r', linestyle = '-') 
+plt.xlabel('strategy round')
+plt.ylabel('verhaeltnis zeitverbrauch strategy update zu nexttask')
+plt.savefig('relationship_strategy_update_nexttask.png')
+plt.clf()
+
+# histogram of amount of tool calls
+x = []
+for cmd in cmds.keys():
+    x.append(cmds[cmd]['count'])
+
+plt.hist(x, bins=50)
+plt.title("Tool Call frequency")
+plt.savefig('number_of_toolcalls_per_tool.png')
+plt.clf()
+
+# tools within runs
+x = [0, 0, 0, 0, 0, 0 ,0]
+
+count = 0
+for cmd in cmds.keys():
+    pos = cmds[cmd]['within_runs_pct'] * 6
+    x[int(pos)] += 1
+    count += 1
+
+for i in range(1, 7):
+    for j in range(i+1, 7):
+        x[i] += x[j]
+
+x = list(map(lambda i: i/count, x))
+plt.bar( [1, 2, 3, 4, 5, 6], x[1:])
+plt.xlabel("Tool was in >= x runs")
+plt.ylabel("Percentage of tools")
+
+plt.savefig('tools_within_runs.png')

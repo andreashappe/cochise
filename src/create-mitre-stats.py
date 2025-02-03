@@ -20,6 +20,9 @@ tactics = {}
 techniques = {}
 main = {}
 
+
+maintech_runs = {}
+
 def analyze_xlsx(filename):
     wb = load_workbook(filename)
     sheet = wb['Sheet1']
@@ -40,14 +43,19 @@ def analyze_xlsx(filename):
             if not maintech in main:
                 main[maintech] = 1
             else:
-                main[maintech] += 1
+                main[maintech] += 2
+
+            if not maintech in maintech_runs:
+                maintech_runs[maintech] = [filename]
+            else:
+                if not filename in maintech_runs[maintech]:
+                    maintech_runs[maintech].append(filename)
 
         if not tactic in tactics:
             tactics[tactic] = 0
         tactics[tactic] += 1
 
         row += 1
-
 
 for file in files:
     analyze_xlsx(file)
@@ -90,3 +98,7 @@ print(str(main))
 # Top 15 Techniques
 for i, cnt in main[0:15]:
     print(f"{mapping[i]} -> {cnt}")
+
+# anteil maintech in runs
+for i, cnt in maintech_runs.items():
+    print(f"{i} -> {len(cnt)/len(files)}")
