@@ -81,6 +81,9 @@ top15 = [
     'smbclient', 'nxc', 'cat', 'echo', 'nmap', 'rpcclient', 'impacket-GetUserSPNs', 'john', 'impacket-GetNPUsers', 'hashcat', 'impacket-mssqlclient', 'netexec', 'impacket-smbexec', 'impacket-secretsdump', 'impacket-GetADUsers', 'ls'
 ]
 
+print(f"{cmds['nxc']['syntax']} : {cmds['nxc']['semantics']}")
+print(f"{cmds['netexec']['syntax']} : {cmds['netexec']['semantics']}")
+
 for i in top15:
     if 'syntax' in cmds[i]:
         syntax = cmds[i]['syntax']

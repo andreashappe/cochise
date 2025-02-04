@@ -41,7 +41,7 @@ def std_dev(dataset):
     squared_diffs = [(x - mean) ** 2 for x in dataset]
     variance = sum(squared_diffs) / length
 
-    return mean, variance
+    return mean, math.sqrt(variance)
 
 round = {}
 
@@ -70,8 +70,10 @@ def analyze_file(filename):
         # do we need to remove the cached tokens from input?
         o1_token_input = 0
         o1_token_output = 0
+        o1_cached_tokens = 0
         gpt4o_token_input = 0
         gpt4o_token_output = 0
+        gpt4o_cached_tokens = 0
 
         exec_counter = 0
         execs = []
@@ -86,9 +88,12 @@ def analyze_file(filename):
             j = json.loads(line)
 
             if j['event'] == 'strategy_update':
+
+
                 strat_updates += 1
                 o1_token_input += j['costs']['token_usage']['prompt_tokens']
                 o1_token_output += j['costs']['token_usage']['completion_tokens']
+                o1_cached_tokens += j['costs']['token_usage']['prompt_tokens_details']['cached_tokens']
                 duration_upd = j['duration']
                 exec_counter = 0
 
@@ -98,6 +103,7 @@ def analyze_file(filename):
             if j['event'] == 'strategy_next_task':
                 o1_token_input += j['costs']['token_usage']['prompt_tokens']
                 o1_token_output += j['costs']['token_usage']['completion_tokens']
+                o1_cached_tokens += j['costs']['token_usage']['prompt_tokens_details']['cached_tokens']
                 duration_next_task = j['duration']
                 create_or_append(strat_updates, 'state_tokens', j['costs']['token_usage']['prompt_tokens'])
                 create_or_append(strat_updates, 'upd_vs_nexttask', duration_upd/duration_next_task)
@@ -109,6 +115,7 @@ def analyze_file(filename):
 
                 gpt4o_token_input += j['costs']['token_usage']['prompt_tokens']
                 gpt4o_token_output += j['costs']['token_usage']['completion_tokens']
+                gpt4o_cached_tokens += j['costs']['token_usage']['prompt_tokens_details']['cached_tokens']
 
                 execs.append(exec_counter)
                 exec_cmds.append(cmd_counter)
@@ -121,6 +128,7 @@ def analyze_file(filename):
 
                 gpt4o_token_input += j['costs']['token_usage']['prompt_tokens']
                 gpt4o_token_output += j['costs']['token_usage']['completion_tokens']
+                gpt4o_cached_tokens += j['costs']['token_usage']['prompt_tokens_details']['cached_tokens']
 
                 if len(j['result']['tool_calls']) == 0:
                     execs.append(exec_counter)
@@ -158,8 +166,12 @@ def analyze_file(filename):
             'cmd_calls': cmd_calls,
             'o1_token_input': o1_token_input,
             'o1_token_output':o1_token_output,
+            'o1_cached_tokens': o1_cached_tokens,
             'gpt4o_token_input': gpt4o_token_input,
             'gpt4o_token_output': gpt4o_token_output,
+            'gpt4o_cached_tokens': gpt4o_cached_tokens,
+            'executor_commands': execs,
+            'executed_commands': exec_cmds,
             'exec_stat_mean': mean,
             'exec_stat_abweich': math.sqrt(variance),
             'cmd_stat_mean': cmd_mean,
@@ -184,3 +196,42 @@ for i in top_tools[:16]:
     print(f" - {i[0]} -> {i[1]['count']}; run-pct: {i[1]['within_runs_pct']}")
 
 console.print(Pretty(round))
+
+print(str(', '.join(sorted(cmds.keys()))))
+
+overall_costs = 0
+
+o1_input = []
+o1_output = []
+gpt4o_input = []
+gpt4o_output = []
+
+execs = []
+exec_cmds = []
+for run in runs.keys():
+    data = runs[run]
+    print(str(data))
+
+    cost = data['o1_token_input']/1_000_000*15 - data['o1_cached_tokens']/1_000_000*7.5 + data['o1_token_output']/1_000_000*60 + data['gpt4o_token_input']/1_000_000*2.5 - data['gpt4o_cached_tokens']/1_000_000*1.25 + data['gpt4o_token_output']/1_000_000*10 
+    overall_costs += cost
+    print(str(cost))
+
+    o1_input.append(data['o1_token_input'])
+    o1_output.append(data['o1_token_output'])
+    gpt4o_input.append(data['gpt4o_token_input'])
+    gpt4o_output.append(data['gpt4o_token_output'])
+    execs += data['executor_commands']
+    exec_cmds += data['executed_commands']
+
+print(overall_costs/6)
+
+print(str(std_dev(o1_input)))
+print(str(std_dev(o1_output)))
+print(str(std_dev(gpt4o_input)))
+print(str(std_dev(gpt4o_output)))
+
+print(str(execs))
+print(str(exec_cmds))
+
+print(str(std_dev(execs)))
+print(str(std_dev(exec_cmds)))

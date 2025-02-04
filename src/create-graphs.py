@@ -43,7 +43,7 @@ def std_dev(dataset):
     squared_diffs = [(x - mean) ** 2 for x in dataset]
     variance = sum(squared_diffs) / length
 
-    return mean, variance
+    return mean, math.sqrt(variance)
 
 round = {}
 
@@ -94,15 +94,21 @@ def analyze_file(filename):
                 duration_upd = j['duration']
                 exec_counter = 0
 
+                cached_tokens = j['costs']['token_usage']['prompt_tokens_details']['cached_tokens']
+                cost = o1_token_input/1_000_000*15 - cached_tokens/1_000_000*7.5 + o1_token_output/1_000_000*60
+
                 create_or_append(strat_updates, 'update_duration', [j['costs']['token_usage']['prompt_tokens'], duration_upd])
+                create_or_append(strat_updates, 'update_duration_total_tokens', [j['costs']['token_usage']['total_tokens'], duration_upd])
+                create_or_append(strat_updates, 'update_duration_costs', [cost, duration_upd])
                 create_or_append(strat_updates, 'state', len(j['result']))
+                create_or_append(strat_updates, 'duration_updated', duration_upd)
 
             if j['event'] == 'strategy_next_task':
                 o1_token_input += j['costs']['token_usage']['prompt_tokens']
                 o1_token_output += j['costs']['token_usage']['completion_tokens']
                 duration_next_task = j['duration']
                 create_or_append(strat_updates, 'state_tokens', j['costs']['token_usage']['prompt_tokens'])
-                create_or_append(strat_updates, 'upd_vs_nexttask', duration_upd/duration_next_task)
+                create_or_append(strat_updates, 'duration_next_task', duration_next_task)
 
             # tool calls timed out
             if j['event'] == 'executor_summary_missing':
@@ -175,18 +181,6 @@ for tool in tools_used_within_run.keys():
     tool_runs  = tools_used_within_run[tool]
     cmds[tool]['within_runs_pct'] = len(tool_runs) / len(files)
 
-console.print(Pretty(runs))
-
-console.print(Pretty(cmds))
-console.print(f"different tools: {len(cmds)}")
-
-
-top_tools = sorted(cmds.items(), key=lambda x:x[1]['count'], reverse=True)
-for i in top_tools[:16]:
-    print(f" - {i[0]} -> {i[1]['count']}; run-pct: {i[1]['within_runs_pct']}")
-
-console.print(Pretty(round))
-
 # update duration depending upon prompt size
 x = []
 y = []
@@ -204,86 +198,151 @@ plt.ylabel('duration in sec')
 plt.savefig('update_duration.png')
 plt.clf()
 
-# state size
 x = []
 y = []
 
 for idx in round.keys():
     i = round[idx]
 
-    for j in i['state']:
-        x.append(idx)
-        y.append(j)
+    for j in i['update_duration_total_tokens']:
+        x.append(j[0])
+        y.append(j[1])
 
 plt.scatter(x, y, marker="*")
-plt.xlabel('strategy round')
-plt.ylabel('state size (plan) in characters')
-plt.savefig('state_size.png')
+plt.xlabel('prompt + copmletion tokens')
+plt.ylabel('duration in sec')
+plt.savefig('update_duration_total_tokens.png')
 plt.clf()
+
+x = []
+y = []
+
+for idx in round.keys():
+    i = round[idx]
+
+    for j in i['update_duration_costs']:
+        x.append(j[0])
+        y.append(j[1])
+
+plt.scatter(x, y, marker="*")
+plt.xlabel('query cost')
+plt.ylabel('duration in sec')
+plt.savefig('update_duration_cost.png')
+plt.clf()
+
+def state_size(round):
+    # state size
+    x = []
+    y = []
+
+    for idx in round.keys():
+        i = round[idx]
+
+        for j in i['state']:
+            x.append(idx)
+            y.append(j)
+
+    plt.scatter(x, y, marker="*")
+    plt.xlabel('strategy round')
+    plt.ylabel('state size (plan) in characters')
+    plt.savefig('state_size.png')
+    plt.clf()
 
 # state size (using input-tokens for next_task as proxy)
-x = []
-y = []
+def state_size_in_tokens(round):
+    x = []
+    y = []
+
+    for idx in round.keys():
+        i = round[idx]
+
+        if 'state_tokens' in i:
+            for j in i['state_tokens']:
+                x.append(idx)
+                y.append(j)
+
+    plt.scatter(x, y, marker="*")
+    plt.xlabel('strategy round')
+    plt.ylabel('state size in tokens (using input for next_task as proxy)')
+    plt.savefig('state_size_tokens.png')
+    plt.clf()
+
+x_upd = []
+y_upd = []
+x_next_task = []
+y_next_task = []
 
 for idx in round.keys():
     i = round[idx]
 
-    if 'state_tokens' in i:
-        for j in i['state_tokens']:
-            x.append(idx)
-            y.append(j)
+    if 'duration_updated' in i:
+        for j in i['duration_updated']:
+            x_upd.append(idx)
+            y_upd.append(j)
 
-plt.scatter(x, y, marker="*")
+    if 'duration_next_task' in i:
+        for j in i['duration_next_task']:
+            x_next_task.append(idx)
+            y_next_task.append(j)
+
+plt.scatter(x_upd, y_upd, marker=".")
+plt.scatter(x_next_task, y_next_task, marker=".")
+
+print(str(std_dev(y_upd)))
+print(str(std_dev(y_next_task)))
+
 plt.xlabel('strategy round')
-plt.ylabel('state size in tokens (using input for next_task as proxy)')
-plt.savefig('state_size_tokens.png')
-plt.clf()
-
-# verhaeltnis update-strategy vs. next-task
-x = []
-y = []
-
-for idx in round.keys():
-    i = round[idx]
-
-    if 'upd_vs_nexttask' in i:
-        for j in i['upd_vs_nexttask']:
-            x.append(idx)
-            y.append(j)
-
-plt.scatter(x, y, marker=".")
-plt.axhline(y = 1, color = 'r', linestyle = '-') 
-plt.xlabel('strategy round')
-plt.ylabel('verhaeltnis zeitverbrauch strategy update zu nexttask')
+plt.ylabel('LLM call duration in seconds')
 plt.savefig('relationship_strategy_update_nexttask.png')
 plt.clf()
 
-# histogram of amount of tool calls
-x = []
-for cmd in cmds.keys():
-    x.append(cmds[cmd]['count'])
 
-plt.hist(x, bins=50)
-plt.title("Tool Call frequency")
-plt.savefig('number_of_toolcalls_per_tool.png')
-plt.clf()
+# Combine data into a list
+data = [y_upd, y_next_task]
+
+# Define histogram bins
+bins = list(range(0, 150, 2))
+
+# Plot the stacked histogram
+plt.hist(y_upd, bins=bins, stacked=True, label='Update-Plan')
+plt.hist(y_next_task, bins=bins, stacked=True, label='Next-Task', alpha=0.75)
+
+# Add labels, legend, and title
+plt.xlabel('Latency')
+plt.ylabel('Frequency')
+plt.title('Stacked Histogram: Planner LLM Call Latencies')
+plt.legend()
+plt.savefig('update_next_task.png')
+
+
+# histogram of amount of tool calls
+def tool_call_histogram(cmds):
+    x = []
+    for cmd in cmds.keys():
+        x.append(cmds[cmd]['count'])
+
+    plt.hist(x, bins=50)
+    plt.title("Tool Call frequency")
+    plt.savefig('number_of_toolcalls_per_tool.png')
+    plt.clf()
 
 # tools within runs
-x = [0, 0, 0, 0, 0, 0 ,0]
+def tools_within_runs(cmds):
+    x = [0, 0, 0, 0, 0, 0 ,0]
 
-count = 0
-for cmd in cmds.keys():
-    pos = cmds[cmd]['within_runs_pct'] * 6
-    x[int(pos)] += 1
-    count += 1
+    count = 0
+    for cmd in cmds.keys():
+        pos = cmds[cmd]['within_runs_pct'] * 6
+        x[int(pos)] += 1
+        count += 1
 
-for i in range(1, 7):
-    for j in range(i+1, 7):
-        x[i] += x[j]
+    for i in range(1, 7):
+        for j in range(i+1, 7):
+            x[i] += x[j]
 
-x = list(map(lambda i: i/count, x))
-plt.bar( [1, 2, 3, 4, 5, 6], x[1:])
-plt.xlabel("Tool was in >= x runs")
-plt.ylabel("Percentage of tools")
+    x = list(map(lambda i: i/count, x))
+    plt.bar( [1, 2, 3, 4, 5, 6], x[1:])
+    plt.xlabel("Tool was in >= x runs")
+    plt.ylabel("Percentage of tools")
 
-plt.savefig('tools_within_runs.png')
+    plt.savefig('tools_within_runs.png')
