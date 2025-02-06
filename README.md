@@ -10,6 +10,8 @@ When OpenAI opened up API access to its o1 model on January, 24th 2025 and I saw
 
 To evaluate the LLM's capabilities I set up the great [GOADv3](https://github.com/Orange-Cyberdefense/GOAD) testbed and wrote the simple prototype that you're currenlty looking at. This work is only intended to be used against security testbeds, never against real system (you know, as long as we do not understand how AI decision-making happens, you wouldn't want to use an LLM for taking potentially destructive decisions).
 
+A paper detailing our architecture, implementation and results is currently under submission to arxiv, stay tuned.
+
 **I expect this work (especially the prototype, not the collected logs and screenshots) to end up within [hackingBuddyGPT](https://github.com/ipa-lab/hackingBuddyGPT) eventually.**
 
 ## Example
