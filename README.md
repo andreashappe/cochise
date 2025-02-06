@@ -12,6 +12,12 @@ To evaluate the LLM's capabilities I set up the great [GOADv3](https://github.co
 
 **I expect this work (especially the prototype, not the collected logs and screenshots) to end up within [hackingBuddyGPT](https://github.com/ipa-lab/hackingBuddyGPT) eventually.**
 
+## Example
+
+![Cochise using AS-REP roasting together with password-cracking to compromise missandei](examples/screenshots/asrep_hash.png)
+
+Cochise using AS-REP roasting together with password-cracking to compromise missandei's password.
+
 ## Installation Instructions
 
 .. will follow soon.
