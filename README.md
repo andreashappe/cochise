@@ -10,7 +10,19 @@ When OpenAI opened up API access to its o1 model on January, 24th 2025 and I saw
 
 To evaluate the LLM's capabilities I set up the great [GOADv3](https://github.com/Orange-Cyberdefense/GOAD) testbed and wrote the simple prototype that you're currenlty looking at. This work is only intended to be used against security testbeds, never against real system (you know, as long as we do not understand how AI decision-making happens, you wouldn't want to use an LLM for taking potentially destructive decisions).
 
-A paper detailing our architecture, implementation and results is currently under submission to arxiv, stay tuned.
+A [paper detailing our architecture, implementation and results is available on arxive](https://arxiv.org/pdf/2502.04227), if you want to cite it within your own work, please use
+
+```bibtex
+@misc{happe2025llmshackenterprisenetworks,
+      title={Can LLMs Hack Enterprise Networks? Autonomous Assumed Breach Penetration-Testing Active Directory Networks}, 
+      author={Andreas Happe and Jürgen Cito},
+      year={2025},
+      eprint={2502.04227},
+      archivePrefix={arXiv},
+      primaryClass={cs.CR},
+      url={https://arxiv.org/abs/2502.04227}, 
+}
+```
 
 **I expect this work (especially the prototype, not the collected logs and screenshots) to end up within [hackingBuddyGPT](https://github.com/ipa-lab/hackingBuddyGPT) eventually.**
 
