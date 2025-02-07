@@ -46,6 +46,7 @@ We are using the standard [GOAD setup](https://orange-cyberdefense.github.io/GOA
 
 Create a new kali linux virtual machine and place it into the virtual network (which is used by GOAD). I did the following changes to the otherwise vanilla Kali VM:
 
+- set the root password to 'kali'. Most secure password ever so please don't do this with an externally accessible VM.
 - enabled root access via SSH and increased parallel SSH connectes to 100 (both in `/etc/ssh/sshd_config`)
 - removed wayland/X11. Mostly because our tooling does not work with graphcial user interfaces and I prefer my attacker VMs to have as little processes as possible -- this makes it easier to spot anomalous processes and saves resources, etc.
 
@@ -62,7 +63,50 @@ Did I already mention that I would have loved to use KVM instead of VirtualBox?
 
 ### Step 4: Setup cochise and its dependencies
 
-.. will follow soon.
+We follow python best practises and will use pip's editable installs and venvs:
+
+``` bash
+# clone github repository
+$ git@github.com:andreashappe/cochise.git
+
+# switch to it
+$ cd cochise
+
+# create a venv environment and install dependencies
+$ python -m venv venv
+$ source venv/bin/activate
+$ pip install -e .
+```
+
+Set up a `.env` configuraton file with both SSH kali-vm and OpenAI connection data:
+
+```
+# your openai api key
+OPENAI_API_KEY='your-openai-key'
+
+# connection data to your configured kali attacker's VM. You will have to change the IP at least
+TARGET_HOST=192.168.56.107
+TARGET_USERNAME='root'
+TARGET_PASSWORD='kali'
+```
+
+### Step 5: Run it
+
+Easiest way is to just start it..
+
+```bash
+$ python src/cochise.py
+```
+
+During runs, log data will be created within `/logs`. For each run you will have a `run-<timestamp>.json` and `run-<timestamp>.log`. The former contains JSON-structured logs of everything relevant for later analysis (hopefully). The `log` version is easier to read for humans but might be removed in the future.
+
+There is another tool `cochise-replay.py` that can be used to `replay` (as in "output to the console") a prior run. You call it with a json log file, e.g.,:
+
+```bash
+$ python3 src/cochise-replay.py logs/run-20250207-112205.json
+```
+
+There are additional analysis scripts in `src/analysis` but they are really ugly. Will have to redo them in the future.
 
 # Disclaimers
 
