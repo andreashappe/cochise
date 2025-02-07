@@ -32,7 +32,35 @@ A [paper detailing our architecture, implementation and results is available on 
 
 Cochise using AS-REP roasting together with password-cracking to compromise missandei's password.
 
-## Installation Instructions
+## How to use this?
+
+### Step 1: Install GOAD
+
+I was using [GOADs install instructions](https://orange-cyberdefense.github.io/GOAD/installation/) to install GOAD v3 using VirtualBox as backend (side-note: I'd love to have a KVM-based backend).
+
+I had problems starting VirtualBox due to my host's Linux Kernel 6.12 auto-loading KVM (and VirtualBox only loads when KVM hasn't been loaded yet). Seem Linux KVM auto-load behavior changed in 6.12 and you have to pass `kvm.enable_virt_at_load=0` as Kernel boot option.
+
+We are using the standard [GOAD setup](https://orange-cyberdefense.github.io/GOAD/labs/GOAD/) but the other ones should also be good. The default setup uses `192.168.56.0/24` for the testbed.
+
+### Step 2: Setup the Kali Linux VM
+
+Create a new kali linux virtual machine and place it into the virtual network (which is used by GOAD). I did the following changes to the otherwise vanilla Kali VM:
+
+- enabled root access via SSH and increased parallel SSH connectes to 100 (both in `/etc/ssh/sshd_config`)
+- removed wayland/X11. Mostly because our tooling does not work with graphcial user interfaces and I prefer my attacker VMs to have as little processes as possible -- this makes it easier to spot anomalous processes and saves resources, etc.
+
+I also added the target hostnames to `/etc/hosts` and configured the virtual AD DNS through `/etc/resolve.conf` (also see https://mayfly277.github.io/posts/GOADv2-pwning_part1/) but did not setup Kerberos.
+
+### Step 3: Fix VMs
+
+When I started with evaluating my prototype, I ran into ***weird*** timing problems. "The internet" told me to try the following fixes:
+
+- limiting the core count per VM to 2
+- enabling HPET timers for all virtual machines (`VBoxManage modifyvm <server> --hpet on`).
+
+Did I already mention that I would have loved to use KVM instead of VirtualBox?
+
+### Step 4: Setup cochise and its dependencies
 
 .. will follow soon.
 
