@@ -87,6 +87,8 @@ async def main(conn:SSHConnection) -> None:
     last_task_result: ExecutedTask = None
     planning_result: PlanResult = None
 
+    findings = []
+
     # open SSH connection
     await conn.connect()
 
@@ -111,7 +113,8 @@ async def main(conn:SSHConnection) -> None:
             tools = [SshExecuteTool(conn)]
             llm2_with_tools = llm2.bind_tools(tools)
 
-            last_task_result = await executor_run(SCENARIO, task, llm2_with_tools, tools, console, logger)
+            last_task_result = await executor_run(SCENARIO, task, findings, llm2_with_tools, tools, console, logger)
+            findings += last_task_result.analysis.findings
 
     logger.write_line(f"run-finsished; result: {str(result)}")
     console.print(Panel(result, title="Problem solved!"))

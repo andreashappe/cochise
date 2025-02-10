@@ -1,36 +1,23 @@
 import asyncio
 import datetime
+import pathlib
 
 from dataclasses import dataclass
 from typing import List
 
-from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, PromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
 
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from rich.panel import Panel
+from rich.pretty import Pretty
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeElapsedColumn
 
-from ptt import ExecutedTask, Task
+from ptt import ExecutedTask, Task, PostAnalysis
 
-PROMPT = """
-To achieve the scenario, focus upon the following task:
-                                      
-`{task.next_step}`
-                                      
-You are given the following additional information about the task:
-
-```                                
-{task.next_step_context}
-```
-
-Perform the task against the target environment. You have up to
-{max} tries to achieve this, stop if you were not able to achieve this.
-
-If you encounter errors, try to solve them.
-
-If the task has been achieved or you reached the maximum allowed try count, stop the execution and state the key finding. Be concise but include the concrete findings that you can gather from the existing output. Include findings that are not directly related to your task too.
-"""
+TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
+PROMPT = PromptTemplate.from_file(str(TEMPLATE_DIR / 'executor_prompt.md.jinja2'), template_format='jinja2')
 
 def is_tool_call(msg) -> bool:
     return hasattr(msg, "tool_calls") and len(msg.tool_calls) > 0
@@ -54,26 +41,9 @@ async def perform_tool_call(tool_call, tool):
         'result': tool_msg.content
     }
 
-class PostAnalysis(BaseModel):
-    """This contains all findings such as missed opportunities, gathered facts, etc. from the current task-solving run."""
+leads = []
 
-    findings: List[str] = Field(
-        description = "A list of gathered findings/facts. These may related to the task but this is not required."
-    )
-
-    not_working: List[str] = Field(
-        description = "A list of attempted commands that did not work out."
-    )
-
-    problems: List[str] = Field(
-        description = "A list of problems that occured during task execution."
-    )
-
-    opportunities: List[str] = Field(
-        description = "A list of potential new opportunities and leads. These may be related to the task but this is not required." 
-    )
-
-async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, logger):
+async def executor_run(SCENARIO, task: Task, findings, llm2_with_tools, tools, console, logger):
 
     # create a string -> tool mapping
     mapping = {}
@@ -86,11 +56,19 @@ async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, lo
     # how many rounds will we do?
     MAX_ROUNDS: int = 10
 
+    text = PROMPT.invoke(
+            {'task': task,
+                'max': str(MAX_ROUNDS-1),
+                'findings': findings
+            }).text
+    
+    print(str(text))
+
     # the initial prompt
     chat_template = ChatPromptTemplate.from_messages(
         [
             SystemMessage(content=SCENARIO),
-            HumanMessagePromptTemplate.from_template(PROMPT)
+            HumanMessagePromptTemplate.from_template(text)
         ]
     )
 
@@ -154,30 +132,40 @@ async def executor_run(SCENARIO, task: Task, llm2_with_tools, tools, console, lo
             break
         round = round + 1
 
-    # create a new summary if we were not able to achieve the task within $steps
-    if summary == None:
-            messages.append(HumanMessage(content="You ran into a timeout and cannot further explore your task. Plese provide a containing findings that arose while trying to solve the task"))
-            tik = datetime.datetime.now()
-            summary_msg = llm2_with_tools.invoke(messages)
-            tok = datetime.datetime.now()
-            logger.write_llm_call('executor_summary_missing', prompt='',
-                              result=summary_msg.content,
-                              costs=summary_msg.response_metadata,
-                              duration=(tok-tik).total_seconds())
-            messages.append(summary_msg)
-            summary = summary_msg.content
+    print(str(summary))
 
-    assert(summary != None)
+    # summarize the result and create the findings list
+    #messages.append(HumanMessage(content="You ran into a timeout and cannot further explore your task. Plese provide a containing findings that arose while trying to solve the task"))
+    #tik = datetime.datetime.now()
+    #summary_msg = llm2_with_tools.invoke(messages)
+    #tok = datetime.datetime.now()
+    #logger.write_llm_call('executor_summary', prompt='',
+    #                  result=summary_msg.content,
+    #                  costs=summary_msg.response_metadata,
+    #                  duration=(tok-tik).total_seconds())
+    #messages.append(summary_msg)
+    #summary = summary_msg.content
+
+    #assert(summary != None)
 
     # output the result, then return it
-    console.print(Panel(summary, title="ExecutorAgent Output"))
+    #console.print(Panel(summary, title="ExecutorAgent Output"))
 
     # try to get a list of findings (disabled for now)
-    #llm_gpt4 = ChatOpenAI(model="gpt-4o", temperature=0)
-    #messages.append(HumanMessage(content="Go through the commands and their outputs again and provide a list of findings and potential opportunities."))
-    #findings = llm_gpt4.with_structured_output(PostAnalysis).invoke(messages)
-    #console.print(Pretty(findings))
+    llm_gpt4 = ChatOpenAI(model="gpt-4o", temperature=0)
+    messages.append(HumanMessage(content="Go through the commands and their outputs again and provide a list of findings and potential leads. All given findings and leads should be new and not have already been included in the initial findings/leads list. Findings should be self-contained and contain all information for subsequent operations to work upon them."))
+    tik = datetime.datetime.now()
+    findings = llm_gpt4.with_structured_output(PostAnalysis).invoke(messages)
+    tok = datetime.datetime.now()
+    #logger.write_llm_call('executor_summary', prompt='',
+    #                  result=summary_msg.content,
+    #                  costs=summary_msg.response_metadata,
+    #                  duration=(tok-tik).total_seconds())
+    console.print(Pretty(findings))
+
+    # leads = leads + findings.leads
+    print(str(leads))
 
     console.log("Finished low-level executor run..")
 
-    return ExecutedTask(task, summary, history)
+    return ExecutedTask(task, findings, history)

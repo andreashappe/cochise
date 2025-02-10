@@ -43,10 +43,26 @@ class PlanResult(BaseModel):
         "If you need to further use tools to get the answer, use Plan."
     )
 
+class PostAnalysis(BaseModel):
+    """This contains all findings such as missed opportunities, gathered facts, etc. from the current task-solving run."""
+
+    summary: str = Field(
+        description="A concise summary if and how the given task was achieved or not."
+    )
+
+    findings: List[str] = Field(
+        description = "A list of gathered findings/facts. These may related to the task but this is not required."
+    )
+
+    leads: List[str] = Field(
+        description = "A list of new leads derived from the execution of the commands. The leads may be related to the task but this is not required." 
+    )
+
+
 @dataclass
 class ExecutedTask:
     task: Task
-    summary: str
+    analysis: PostAnalysis
     cmd_history: List[Dict[str, str]]
     
 class PlanTestTreeStrategy:

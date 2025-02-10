@@ -1,0 +1,24 @@
+To achieve the scenario, focus upon the following task:
+                                      
+`{{ task.next_step }}`
+                                      
+You are given the following additional information about the task:
+
+```                                
+{{ task.next_step_context }}
+```
+
+{% if findings|length > 0 %}
+You already have the following findings from prior runs:
+
+{% for itm in findings %}
+    - {{ itm }}
+{% endfor %}
+{% endif %}
+
+Perform the task against the target environment. You have up to
+{{max}} tries to achieve this, stop if you were not able to achieve this.
+
+If you encounter errors, try to solve them.
+
+If the task has been achieved or you reached the maximum allowed try count, stop the execution and state 'achieved' or 'not-achieved'.

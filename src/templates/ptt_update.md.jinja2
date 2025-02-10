@@ -54,7 +54,19 @@ You have recently executed the following commands. Integrate findings and result
 
 ## Results
 
-{{ last_task.summary }}
+{{ last_task.analysis.summary }}
+
+New findings:
+
+{% for item in last_task.analysis.findings %}
+    - {{ item }}
+{%endfor%}
+
+New leads/opportunities:
+
+{% for item in last_task.analysis.leads%}
+    - {{ item }}
+{%endfor%}
 
 ## Steps performed during task execution
 
