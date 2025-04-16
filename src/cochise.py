@@ -112,7 +112,7 @@ async def main(conn:SSHConnection) -> None:
 
             task = result.action
             console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
-            result, messages, history = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger)
+            result, messages, history = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger, invalid_commands)
 
             # summarize the result and create the findings list
             analyzed_execution = summarize(console, llm_summary, task, result, messages, history)

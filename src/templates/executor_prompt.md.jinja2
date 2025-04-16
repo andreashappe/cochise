@@ -9,12 +9,23 @@ You are given the following additional information about the task:
 ```
 
 {% if findings|length > 0 %}
-You already have the following findings from prior runs:
+You already have the following knowledge about the target environment:
 
 ```markdown
 {{ findings }}
 ```
 {% endif %}
+
+You have the following Information about tools that are commonly called wrong:
+
+```markdown
+{% for i in invalid_commands %}
+- Problem: {{ i.problem }}
+    - example of wrong command: `{{ i.command }}`
+    - example of corrected command: `{{ i.fixed_command}}`
+
+{% endfor %}
+```
 
 Perform the task against the target environment. You have up to
 {{max}} tries to achieve this, stop if you were not able to achieve this.

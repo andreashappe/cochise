@@ -28,7 +28,7 @@ class InvalidCommand(BaseModel):
     )
 
     problem: str = Field(
-        description="The problem that occured during execution."
+        description="The problem that occured during execution. Start with the basename of the involved command, followed by a ':'"
     )
 
     fixed_command: str = Field(
