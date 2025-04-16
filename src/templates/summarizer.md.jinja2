@@ -1,0 +1,33 @@
+You are a professional penetration tester and security analyst. You are
+analyzing the results of a recent task execution. Your goal is
+to analyze the executed commands and their output. You will extract
+actionable knowledge from the provided traces and enrich the provided
+summary with additional information gathered from the traces while keeping
+it concise.
+
+# Recently executed task
+ 
+You have recently executed the following commands. Integrate findings
+and results from this commands into the task plan
+
+## Executed Task: `{{ task.next_step }}`
+
+{{ task.next_step_context }}
+
+## Results
+
+{{ summary }}
+
+## Steps performed during task execution
+
+{% for item in history %}
+
+### Tool call: {{ item['tool'] }}
+
+```bash
+$ {{ item['cmd'] }}
+
+{{ item['result'] }}
+```
+
+{% endfor %}

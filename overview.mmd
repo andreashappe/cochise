@@ -1,0 +1,29 @@
+---
+config:
+      theme: redux
+---
+flowchart TD
+        start(("Start"))
+        replan["Update Plan (o3-mini)"]
+        next{"Select Next Task (o3-mini)"}
+        execute["Execute Task (gpt-4o)"]
+        summarizer["Summarizer (o3-mini)"]
+        finish(((done)))
+
+        findings@{ shape: lin-cyl, label: "Findings" }
+        invalid_commands@{ shape: lin-cyl, label: "Invalid Commands (cmd, descr, fix)" }
+        ptt@{ shape: lin-cyl, label: "Pentest Task Tree" }
+
+        start -- plan=None,task=None, analyzed_execution=None --> replan
+        replan <-. plan .-> ptt
+        ptt -. plan .-> next
+        replan --> next
+        next -- task, context --> execute
+        next --> finish
+        next -. task, context .-> summarizer
+        next -. task, context .-> replan
+        execute -- result, history --> summarizer 
+        summarizer -- analyzed_execution(summary, leads, findings) --> replan
+        summarizer -. invalid commands .-> invalid_commands
+        summarizer -. findings .-> findings
+        findings -. findings .-> execute

@@ -1,20 +1,19 @@
 import asyncio
+from typing import List
 
 from dotenv import load_dotenv
-
 from langchain_openai import ChatOpenAI
-#from langchain_ollama import ChatOllama
-
-from common import get_or_fail
-from executor import executor_run, ExecutedTask
-from pathlib import Path
-from ptt import PlanTestTreeStrategy, PlanFinished, PlanResult, Task
+from common import InvalidCommand, Task, get_or_fail
+from executor import executor_run
+from ptt import PlanTestTreeStrategy, PlanFinished, PlanResult
 from kalissh import get_ssh_connection_from_env, SshExecuteTool, SSHConnection
 
 from rich.console import Console
 from rich.panel import Panel
+from rich.pretty import Pretty
 
 from logger import Logger
+from summarizers.text_history import summarize
 
 # setup logggin console for now
 console = Console()
@@ -71,23 +70,26 @@ Tool-specific guidance:
 """
 
 # create the graph
-# llm_o1 = ChatOpenAI(model="o1")
-llm_o1 = ChatOpenAI(model="o1")
-llm_gpt4 = ChatOpenAI(model="gpt-4o", temperature=0)
-# llm = ChatOllama(model='deepseek-r1:32b')
-# llm = ChatOllama(model='qwen2.5-coder:32b')
+llm_strategy = ChatOpenAI(model="o3-mini")
+
+tools = [SshExecuteTool(conn)]
+llm_with_tools = ChatOpenAI(model="gpt-4o", temperature=0).bind_tools(tools)
+
+llm_summary = ChatOpenAI(model="o3-mini")
 
 # re-use an old stored state? if not, set old_state to ''
 # old_state = Path('examples/states/spraying_into_sysvol.txt').read_text()
-old_state = ''
+old_state = None
 
-high_level_planner = PlanTestTreeStrategy(llm_o1, SCENARIO, logger, plan = old_state)
+high_level_planner = PlanTestTreeStrategy(llm_strategy, SCENARIO, logger, plan = old_state)
 
 async def main(conn:SSHConnection) -> None:
-    last_task_result: ExecutedTask = None
+    analyzed_execution = None
+    task: Task = None
     planning_result: PlanResult = None
 
     findings = []
+    invalid_commands: List[InvalidCommand] = []
 
     # open SSH connection
     await conn.connect()
@@ -95,28 +97,25 @@ async def main(conn:SSHConnection) -> None:
     while not isinstance(planning_result, PlanFinished):
 
         with console.status("[bold green]llm-call: updating plan and selecting next task") as status:
-            high_level_planner.update_plan(last_task_result)
-            console.print(Panel(high_level_planner.get_plan(), title="Updated Plan"))
+            high_level_planner.update_plan(task, analyzed_execution)
+            console.print(Panel(high_level_planner.get_plan().plan, title="Updated Plan"))
             result = high_level_planner.select_next_task()
             planning_result = result.action
-
-            #result = high_level_planner.select_next_task(llm_gpt4)
-            #console.print(Panel(str(result2), title="Potential alternative answer done by GPT-4o"))
 
         if isinstance(result.action, Task):
 
             task = result.action
             console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
+            result, messages, history = await executor_run(SCENARIO, task, findings, llm_with_tools, tools, console, logger)
 
-            # create a separate LLM instance so that we have a new state
-            llm2 = ChatOpenAI(model="gpt-4o", temperature=0)
-            tools = [SshExecuteTool(conn)]
-            llm2_with_tools = llm2.bind_tools(tools)
+            # summarize the result and create the findings list
+            analyzed_execution = summarize(console, llm_summary, task, result, messages, history)
+            findings += analyzed_execution.findings
+            invalid_commands += analyzed_execution.invalid_commands
+            console.print(Panel(Pretty(findings), title='Findings'))
+            console.print(Panel(Pretty(invalid_commands), title='Invalid Commands'))
 
-            last_task_result = await executor_run(SCENARIO, task, findings, llm2_with_tools, tools, console, logger)
-            findings += last_task_result.analysis.findings
-
-    logger.write_line(f"run-finsished; result: {str(result)}")
+    logger.write_line(f"run-finished; result: {str(result)}")
     console.print(Panel(result, title="Problem solved!"))
 
 asyncio.run(main(conn))
