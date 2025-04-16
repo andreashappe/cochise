@@ -16,6 +16,7 @@ flowchart TD
         message_history["Episodic Message History"]
   end
 
+    invalid_commands["Invalid Commands (cmd, descr, fix)"]
     findings@{ shape: lin-cyl, label: "Target Environment Knowlege"}
 
     update_knowledge["Update Knowledge (o3-mini)"]
@@ -33,7 +34,8 @@ flowchart TD
     tool_call -- shell output --> execute_decide
     execute_decide -- result --> summarizer
     summarizer -. summary, leads .-> replan
-    summarizer -. invalid commands .-> invalid_commands["Invalid Commands (cmd, descr, fix)"]
+    summarizer -. invalid commands .-> invalid_commands
+    invalid_commands -. invalid commands and fixes .-> execute
     findings -. knowledge .-> execute
     findings -. knowledge .-> replan
     findings -. knowledge .-> next
