@@ -56,17 +56,19 @@ You have recently executed the following commands. Integrate findings and result
 
 ## Results
 
-{{ analysis.summary }}
+```markdown
+{{ summary }}
+```
 
-New findings:
+You have the following current knowledge about the target environment:
 
-{% for item in analysis.findings %}
-    - {{ item }}
-{%endfor%}
+```markdown
+{{ knowledge}}
+```
 
-New leads/opportunities:
+During the last executed command, you identified the following potential vulnerabilities or leads:
 
-{% for item in analysis.leads%}
+{% for item in leads%}
     - {{ item }}
 {%endfor%}
 

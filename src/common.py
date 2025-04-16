@@ -37,20 +37,23 @@ class InvalidCommand(BaseModel):
 
 
 class AnalyzedExecution(BaseModel):
-    """This contains all findings such as missed opportunities, gathered facts, etc. from the current task-solving run."""
+    """Analysis of an executed task which describes the overall result
+       including relevant findings, includes a list of gathered knowledge
+       of the target environment, identified vulnerabilities, as well
+       as a list of invalidly used commands that happened during execution."""
 
     summary: str = Field(
-        description="Overall technical summary of the analyed operation."
+        description="Overall technical summary of the analyzed operation. This should include concrete findings and leads."
     )
 
-    findings: List[str] = Field(
-        description = "A list of gathered findings/facts. These may related to the task but this is not required."
+    gathered_knowledge: List[str] = Field(
+        description = "A list of gathered knowledge about the target environment, e.g., usernames, password, system information, vulnerabilities."""
     )
 
-    leads: List[str] = Field(
-        description = "A list of concrete leads derived from the execution of the commands. The leads may be related to the task but this is not required." 
+    vulnerabilities: List[str] = Field(
+        description = "A list of concrete vulnerabilities that were detected during analysis of the executed commands. This can include leads if there is concrete evidence for their exploitability. This should include detailed information howto exploit the vulnerability, e.g, an example system command to execute."""
     )
 
     invalid_commands: List[InvalidCommand] = Field(
-        description = "A list of commands that were not executed successfully. This may be due to a parameter error or a timeout."
+        description = "A list of commands that were not executed successfully, e.g., due to invalid or non-existing parameters, unkonwn system commands, etc. This should not include commands where the parameter was formally correct, but semantically invalid (e..g, a wrong password or username was given)."""
     )

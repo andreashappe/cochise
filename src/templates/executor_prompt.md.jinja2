@@ -11,9 +11,9 @@ You are given the following additional information about the task:
 {% if findings|length > 0 %}
 You already have the following findings from prior runs:
 
-{% for itm in findings %}
-    - {{ itm }}
-{% endfor %}
+```markdown
+{{ findings }}
+```
 {% endif %}
 
 Perform the task against the target environment. You have up to

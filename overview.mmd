@@ -1,29 +1,49 @@
 ---
 config:
-      theme: redux
+  theme: redux
 ---
 flowchart TD
-        start(("Start"))
+ subgraph planner["planner"]
         replan["Update Plan (o3-mini)"]
         next{"Select Next Task (o3-mini)"}
-        execute["Execute Task (gpt-4o)"]
-        summarizer["Summarizer (o3-mini)"]
-        finish(((done)))
+        ptt["Pentest Task Tree"]
+  end
+ subgraph executor["executor"]
+        execute["Perform Task (gpt-4o)"]
+        execute_decide{"Tool or Finished?"}
+        tool_call@{shape: procs, lable: "tool-call: SSH"}
+        shell_history["Episodic Shell History"]
+        message_history["Episodic Message History"]
+  end
 
-        findings@{ shape: lin-cyl, label: "Findings" }
-        invalid_commands@{ shape: lin-cyl, label: "Invalid Commands (cmd, descr, fix)" }
-        ptt@{ shape: lin-cyl, label: "Pentest Task Tree" }
+    findings@{ shape: lin-cyl, label: "Target Environment Knowlege"}
 
-        start -- plan=None,task=None, analyzed_execution=None --> replan
-        replan <-. plan .-> ptt
-        ptt -. plan .-> next
-        replan --> next
-        next -- task, context --> execute
-        next --> finish
-        next -. task, context .-> summarizer
-        next -. task, context .-> replan
-        execute -- result, history --> summarizer 
-        summarizer -- analyzed_execution(summary, leads, findings) --> replan
-        summarizer -. invalid commands .-> invalid_commands
-        summarizer -. findings .-> findings
-        findings -. findings .-> execute
+    update_knowledge["Update Knowledge (o3-mini)"]
+  
+  
+    start(("Start")) -- "plan=None,task=None,summary='',knowledge='',leads=[]" --> replan
+    replan <-. plan .-> ptt
+    ptt -. plan .-> next
+    replan --> next
+    next -- task, context --> execute
+    next --> finish((("done")))
+    next -. task, context .-> summarizer["Summarizer (o3-mini)"] & replan
+    execute --> execute_decide
+    execute_decide -- cmd --> tool_call
+    tool_call -- shell output --> execute_decide
+    execute_decide -- result --> summarizer
+    summarizer -. summary, leads .-> replan
+    summarizer -. invalid commands .-> invalid_commands["Invalid Commands (cmd, descr, fix)"]
+    findings -. knowledge .-> execute
+    findings -. knowledge .-> replan
+    findings -. knowledge .-> next
+    execute_decide <-. cmd, cmd output .-> message_history
+    execute_decide -. cmd, cmd output .-> shell_history
+    shell_history -. cmd, cmd_output .-> summarizer
+    ptt@{ shape: lin-cyl}
+    shell_history@{ shape: lin-cyl}
+    message_history@{ shape: lin-cyl}
+    invalid_commands@{ shape: lin-cyl}
+    summarizer -- new findings --> update_knowledge
+    update_knowledge <-. knowledge .-> findings
+    update_knowledge --> replan

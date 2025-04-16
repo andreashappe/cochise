@@ -56,8 +56,6 @@ async def executor_run(SCENARIO, task: Task, findings, llm2_with_tools, tools, c
                 'findings': findings
             }).text
     
-    print(str(text))
-
     # the initial prompt
     chat_template = ChatPromptTemplate.from_messages(
         [

@@ -51,7 +51,7 @@ class PlanTestTreeStrategy:
         self.logger = logger
         self.plan = plan
 
-    def update_plan(self, last_task: Task, analysis: AnalyzedExecution) -> None:
+    def update_plan(self, last_task: Task, summary: str, knowledge: str, leads: List[str]) -> None:
 
         if self.plan == None:
             target_plan = ''
@@ -62,7 +62,9 @@ class PlanTestTreeStrategy:
             'user_input': self.scenario,
             'plan': target_plan,
             'last_task': last_task,
-            'analysis': analysis
+            'summary': summary,
+            'knowledge': knowledge,
+            'leads': leads
         }
 
         replanner = TEMPLATE_UPDATE | self.llm.with_structured_output(UpdatedPlan, include_raw=True)
@@ -82,11 +84,12 @@ class PlanTestTreeStrategy:
                                    (tok-tik).total_seconds())
         self.plan = result['parsed']
 
-    def select_next_task(self, llm=None) -> PlanResult:
+    def select_next_task(self, knowledge, llm=None) -> PlanResult:
 
         input = {
             'user_input': self.scenario,
             'plan': self.plan,
+            'knowledge': knowledge
         }
 
         if llm == None:

@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from common import InvalidCommand, Task, get_or_fail
 from executor import executor_run
+from knowledge import update_knowledge
 from ptt import PlanTestTreeStrategy, PlanFinished, PlanResult
 from kalissh import get_ssh_connection_from_env, SshExecuteTool, SSHConnection
 
@@ -88,8 +89,13 @@ async def main(conn:SSHConnection) -> None:
     task: Task = None
     planning_result: PlanResult = None
 
-    findings = []
+    # TODO: maybe add some knowledge here already?
+    knowledge = ""
+    # TODO: maybe add some knowledge here already?
     invalid_commands: List[InvalidCommand] = []
+
+    vulnerabilities = []
+    summary = None
 
     # open SSH connection
     await conn.connect()
@@ -97,22 +103,24 @@ async def main(conn:SSHConnection) -> None:
     while not isinstance(planning_result, PlanFinished):
 
         with console.status("[bold green]llm-call: updating plan and selecting next task") as status:
-            high_level_planner.update_plan(task, analyzed_execution)
+            high_level_planner.update_plan(task, summary, knowledge, vulnerabilities)
             console.print(Panel(high_level_planner.get_plan().plan, title="Updated Plan"))
-            result = high_level_planner.select_next_task()
+            result = high_level_planner.select_next_task(knowledge)
             planning_result = result.action
 
         if isinstance(result.action, Task):
 
             task = result.action
             console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
-            result, messages, history = await executor_run(SCENARIO, task, findings, llm_with_tools, tools, console, logger)
+            result, messages, history = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger)
 
             # summarize the result and create the findings list
             analyzed_execution = summarize(console, llm_summary, task, result, messages, history)
-            findings += analyzed_execution.findings
+            knowledge = update_knowledge(console, llm_summary, knowledge, analyzed_execution.gathered_knowledge)
+            vulnerabilities = analyzed_execution.vulnerabilities
+            summary = analyzed_execution.summary
+
             invalid_commands += analyzed_execution.invalid_commands
-            console.print(Panel(Pretty(findings), title='Findings'))
             console.print(Panel(Pretty(invalid_commands), title='Invalid Commands'))
 
     logger.write_line(f"run-finished; result: {str(result)}")
