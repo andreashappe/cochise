@@ -66,9 +66,9 @@ async def executor_run(SCENARIO, task: Task, findings, llm2_with_tools, tools, c
     )
 
     # our message history
+    print(str(task))
+    print(str(MAX_ROUNDS))
     messages = chat_template.format_messages(task=task, max=(MAX_ROUNDS-1))
-
-    print(str(messages))
 
     # try to solve our sub-task
     round = 1

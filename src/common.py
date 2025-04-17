@@ -31,19 +31,17 @@ class InvalidCommand(BaseModel):
         description="The problem that occured during execution. Start with the basename of the involved command, followed by a ':'"
     )
 
-    fixed_command: str = Field(
-        description="An example how the command should be correctly executed."
-    )
+
+    #fixed_command: str = Field(
+    #    description="An example how the command should be correctly executed."
+    #)
 
 
 class AnalyzedExecution(BaseModel):
-    """Analysis of an executed task which describes the overall result
-       including relevant findings, includes a list of gathered knowledge
-       of the target environment, identified vulnerabilities, as well
-       as a list of invalidly used commands that happened during execution."""
+    """Analysis of an executed task which describes the overall result"""
 
     summary: str = Field(
-        description="Overall technical summary of the analyzed operation. This should include concrete findings and leads."
+        description="Overall technical summary of the analyzed operation including concrete findings."
     )
 
     gathered_knowledge: List[str] = Field(
@@ -54,6 +52,9 @@ class AnalyzedExecution(BaseModel):
         description = "A list of concrete vulnerabilities that were detected during analysis of the executed commands. This can include leads if there is concrete evidence for their exploitability. This should include detailed information howto exploit the vulnerability, e.g, an example system command to execute."""
     )
 
-    invalid_commands: List[InvalidCommand] = Field(
-        description = "A list of commands that were not executed successfully, e.g., due to invalid or non-existing parameters, unkonwn system commands, etc. This should not include commands where the parameter was formally correct, but semantically invalid (e..g, a wrong password or username was given)."""
+    #invalid_commands: List[InvalidCommand] = Field(
+    #    description = "A list of commands that were not executed successfully, e.g., due to invalid or non-existing parameters, unkonwn system commands, etc. This should not include commands where the parameter was formally correct, but semantically invalid (e..g, a wrong password or username was given)."""
+    #)
+    improvement_ideas_for_future_you: str = Field(
+        description="Ideas how to improve the command in the future. This should include concrete examples how to improve the command."
     )

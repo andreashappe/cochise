@@ -14,6 +14,7 @@ You already have the following knowledge about the target environment:
 ```markdown
 {{ findings }}
 ```
+Be aware that this knowledge may be incomplete or incorrect.
 {% endif %}
 
 You have the following Information about tools that are commonly called wrong:
@@ -27,7 +28,7 @@ You have the following Information about tools that are commonly called wrong:
 {% endfor %}
 ```
 
-Perform the task against the target environment. You have up to
-{{max}} tries to achieve this, stop if you were not able to achieve this.
+You have up to {{max}} tries to achieve the given task, stop if you were not able
+to achieve it before that. If successful give a short technical summary.
 
 If you encounter errors, try to solve them.
