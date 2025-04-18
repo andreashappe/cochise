@@ -2,15 +2,11 @@
 
 ***Autonomous Assumed Breach Penetration-Testing Active Directory Networks***
 
-The title is quite a handful, I know..
+The title is quite a handful, I know.. Let's start with some results. The following table is copied from [the initial paper](https://arxiv.org/pdf/2502.04227). It shows results of six hacking testruns within the [GOADv3](https://github.com/Orange-Cyberdefense/GOAD) testbed using OpenAI's O1 and GPT-4o where each testrun is stopped after running for two hours. The important columns are `Users` showing fully-compromised users, `Cost` showing the money spent for a two hour testrun and `Cost per User` showing the cost for compromising a single user ($18 on average). This was done using [the v1 version](https://github.com/andreashappe/cochise/releases/tag/v0.1), I am currently working on a newer version (see the `main` branch) that achieves simliar results using OpenAI's o4-mini together with gpt-4.1 to drop the costs down to less than a quarter of that.
 
-I have been working on [hackingBuddyGPT](https://github.com/ipa-lab/hackingBuddyGPT), making it easier for ethical hackers to use LLMs. My main focus are single-host linux systems and privilege-escalation attacks within them.
+![Results from my initial testruns](money-shot-v1.png)
 
-When OpenAI opened up API access to its o1 model on January, 24th 2025 and I saw the massive quality improvement over GPT-4o, one of my initial thoughts was "could this be used for more-complex pen-testing tasks.. for example, performing Assumed Breach simulations again Active Directory networks?"
-
-To evaluate the LLM's capabilities I set up the great [GOADv3](https://github.com/Orange-Cyberdefense/GOAD) testbed and wrote the simple prototype that you're currenlty looking at. This work is only intended to be used against security testbeds, never against real system (you know, as long as we do not understand how AI decision-making happens, you wouldn't want to use an LLM for taking potentially destructive decisions).
-
-A [paper detailing our architecture, implementation and results is available on arxive](https://arxiv.org/pdf/2502.04227), if you want to cite it within your own work, please use
+You can find many screenshots of the tool in action [within this github repo](https://github.com/andreashappe/cochise/tree/main/examples/screenshots). There's also the initial [paper detailing the architecture, implementation and results](https://arxiv.org/pdf/2502.04227) on arxiv. I am always happy for citations:
 
 ```bibtex
 @misc{happe2025llmshackenterprisenetworks,
@@ -23,6 +19,20 @@ A [paper detailing our architecture, implementation and results is available on 
       url={https://arxiv.org/abs/2502.04227}, 
 }
 ```
+
+## How to Help?
+
+- spread the word? More seriously, if you're an academic working in this area, I would be happy to chat (and please cite me)
+- if you're a hacker, play around with it
+- AI credits/[sponsorships](https://github.com/sponsors/andreashappe) would also be very welcome.. have to pay for my OpenAI credits myself
+
+## Background
+
+I have been working on [hackingBuddyGPT](https://github.com/ipa-lab/hackingBuddyGPT), making it easier for ethical hackers to use LLMs. My main focus are single-host linux systems and privilege-escalation attacks within them.
+
+When OpenAI opened up API access to its o1 model on January, 24th 2025 and I saw the massive quality improvement over GPT-4o, one of my initial thoughts was "could this be used for more-complex pen-testing tasks.. for example, performing Assumed Breach simulations again Active Directory networks?"
+
+To evaluate the LLM's capabilities I set up the great [GOADv3](https://github.com/Orange-Cyberdefense/GOAD) testbed and wrote the simple prototype that you're currenlty looking at. This work is only intended to be used against security testbeds, never against real system (you know, as long as we do not understand how AI decision-making happens, you wouldn't want to use an LLM for taking potentially destructive decisions).
 
 **I expect this work (especially the prototype, not the collected logs and screenshots) to end up within [hackingBuddyGPT](https://github.com/ipa-lab/hackingBuddyGPT) eventually.**
 
