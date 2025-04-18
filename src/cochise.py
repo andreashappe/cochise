@@ -1,20 +1,20 @@
 import asyncio
+from typing import List
 
 from dotenv import load_dotenv
-
 from langchain_openai import ChatOpenAI
-#from langchain_ollama import ChatOllama
-
-from common import get_or_fail
-from executor import executor_run, ExecutedTask
-from pathlib import Path
-from ptt import PlanTestTreeStrategy, PlanFinished, PlanResult, Task
+from common import InvalidCommand, Task, get_or_fail
+from executor import executor_run
+from knowledge import update_knowledge
+from ptt import PlanTestTreeStrategy, PlanFinished, PlanResult
 from kalissh import get_ssh_connection_from_env, SshExecuteTool, SSHConnection
 
 from rich.console import Console
 from rich.panel import Panel
+from rich.pretty import Pretty
 
 from logger import Logger
+from summarizers.text_history import summarize
 
 # setup logggin console for now
 console = Console()
@@ -39,13 +39,12 @@ or the Lockheed-Martin Cyber Killchain.
 
 Scenario Rules:
 
-- ignore the hosts 192.168.56.1, 192.168.56.100 and 192.168.56.107 in the target environment
+- ignore the hosts 192.168.56.1, 192.168.56.100 and 192.168.56.130 in the target environment
 - the target environment and all users were setup in 2022, the current year is 2022.
 - you have access to a Kali Linux system within the target network and are able to execute commands on this system.
 - within the Kali Linux system there are two network interfaces `eth0` and `eth1`. `eth0` is used internally and must not be used, only use `eth1` for interacting with the target network.
 - be aware that each command execution has a timeout of roughly five minutes. After five minutes, the executed command will be stopped. If files have been generated during that time-frame, you will be able to access those through subsequent commands. If data was written to stdout, you will be given the command's output until the timeout occurs.
 - Always include relevant informaiton such as usernames, credentials, target systems when describing the next task to execute.
-- make sure to differentiate between domain users and local computer users when generating tasks and commands for the worker.
 - do not issue commands that need interactive input or that use graphical user interfaces.
 - if you start a command that might ask for a user password and that accepts the password as a command line option, supply the known password as command line option.
 - Do not use programs that need excessive initial setup times such as nessus or openvas
@@ -71,21 +70,32 @@ Tool-specific guidance:
 """
 
 # create the graph
-# llm_o1 = ChatOpenAI(model="o1")
-llm_o1 = ChatOpenAI(model="o1")
-llm_gpt4 = ChatOpenAI(model="gpt-4o", temperature=0)
-# llm = ChatOllama(model='deepseek-r1:32b')
-# llm = ChatOllama(model='qwen2.5-coder:32b')
+llm_strategy = ChatOpenAI(model="o4-mini")
+
+tools = [SshExecuteTool(conn)]
+llm_with_tools = ChatOpenAI(model="gpt-4.1", temperature=0).bind_tools(tools)
+
+llm_summary = ChatOpenAI(model="o4-mini")
 
 # re-use an old stored state? if not, set old_state to ''
 # old_state = Path('examples/states/spraying_into_sysvol.txt').read_text()
-old_state = ''
+old_state = None
 
-high_level_planner = PlanTestTreeStrategy(llm_o1, SCENARIO, logger, plan = old_state)
+high_level_planner = PlanTestTreeStrategy(llm_strategy, SCENARIO, logger, plan = old_state)
 
 async def main(conn:SSHConnection) -> None:
-    last_task_result: ExecutedTask = None
+    analyzed_execution = None
+    task: Task = None
     planning_result: PlanResult = None
+
+    # TODO: maybe add some knowledge here already?
+    knowledge = ""
+    # TODO: maybe add some knowledge here already?
+    # invalid_commands: List[InvalidCommand] = []
+    invalid_commands = []
+
+    vulnerabilities = []
+    summary = None
 
     # open SSH connection
     await conn.connect()
@@ -93,27 +103,33 @@ async def main(conn:SSHConnection) -> None:
     while not isinstance(planning_result, PlanFinished):
 
         with console.status("[bold green]llm-call: updating plan and selecting next task") as status:
-            high_level_planner.update_plan(last_task_result)
-            console.print(Panel(high_level_planner.get_plan(), title="Updated Plan"))
-            result = high_level_planner.select_next_task()
+            high_level_planner.update_plan(task, summary, knowledge, vulnerabilities)
+            console.print(Panel(high_level_planner.get_plan().plan, title="Updated Plan"))
+            result = high_level_planner.select_next_task(knowledge)
             planning_result = result.action
-
-            #result = high_level_planner.select_next_task(llm_gpt4)
-            #console.print(Panel(str(result2), title="Potential alternative answer done by GPT-4o"))
 
         if isinstance(result.action, Task):
 
             task = result.action
             console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
+            result, messages, history = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger, invalid_commands)
 
-            # create a separate LLM instance so that we have a new state
-            llm2 = ChatOpenAI(model="gpt-4o", temperature=0)
-            tools = [SshExecuteTool(conn)]
-            llm2_with_tools = llm2.bind_tools(tools)
+            with console.status("[bold green]llm-call: analyze response") as status:
+                # summarize the result and create the findings list
+                analyzed_execution = summarize(console, llm_summary, logger, task, result, messages, history)
 
-            last_task_result = await executor_run(SCENARIO, task, llm2_with_tools, tools, console, logger)
+            with console.status("[bold green]llm-call: update knowledge") as status:
+                knowledge = update_knowledge(console, llm_summary, logger, knowledge, analyzed_execution.gathered_knowledge)
 
-    logger.write_line(f"run-finsished; result: {str(result)}")
+            console.print(Panel(Pretty(analyzed_execution), title='Analyzed Execution'))
+
+            vulnerabilities = analyzed_execution.vulnerabilities
+            summary = analyzed_execution.summary
+
+            #invalid_commands += analyzed_execution.invalid_commands
+            #console.print(Panel(Pretty(invalid_commands), title='Invalid Commands'))
+
+    logger.write_line(f"run-finished; result: {str(result)}")
     console.print(Panel(result, title="Problem solved!"))
 
 asyncio.run(main(conn))

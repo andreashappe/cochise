@@ -4,7 +4,9 @@ You are given the following objective by the user:
 {{ user_input }}
 ```
 
-You are required to strategize and create a tree-structured task plan that will allow to successfully solve the objective. Workers will follow your task plan to complete the objective, and will report after each finished task back to you. You should use this feedback to update the task plan.
+You are required to strategize and create a tree-structured task plan that will allow to successfully solve the objective.
+Workers will follow your task plan to complete the objective, and will report after each finished task back to you.
+You should use this feedback to update the task plan.
 
 When creating the task plan you must follow the following requirements:
 
@@ -48,26 +50,27 @@ Provide the hierarchical task plan as answer. Do not include a title or an appen
  
 You have recently executed the following commands. Integrate findings and results from this commands into the task plan
 
-## Executed Task: `{{ last_task.task.next_step }}`
+## Executed Task: `{{ last_task.next_step }}`
 
-{{ last_task.task.next_step_context }}
+{{ last_task.next_step_context }}
 
 ## Results
 
-{{ last_task.summary }}
-
-## Steps performed during task execution
-
-{% for item in last_task.cmd_history %}
-
-### Tool call: {{ item['tool'] }}
-
-```bash
-$ {{ item['cmd'] }}
-
-{{ item['result'] }}
+```markdown
+{{ summary }}
 ```
 
-{% endfor %}
+You have the following current knowledge about the target environment:
+
+```markdown
+{{ knowledge}}
+```
+Be aware that this knowledge may be incomplete or incorrect.
+
+During the last executed command, you identified the following potential vulnerabilities or leads:
+
+{% for item in leads%}
+    - {{ item }}
+{%endfor%}
 
 {% endif %}

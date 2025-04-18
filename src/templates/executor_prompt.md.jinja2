@@ -1,0 +1,34 @@
+To achieve the scenario, focus upon the following task:
+                                      
+`{{ task.next_step }}`
+                                      
+You are given the following additional information about the task:
+
+```                                
+{{ task.next_step_context }}
+```
+
+{% if findings|length > 0 %}
+You already have the following knowledge about the target environment:
+
+```markdown
+{{ findings }}
+```
+Be aware that this knowledge may be incomplete or incorrect.
+{% endif %}
+
+You have the following Information about tools that are commonly called wrong:
+
+```markdown
+{% for i in invalid_commands %}
+- Problem: {{ i.problem }}
+    - example of wrong command: `{{ i.command }}`
+    - example of corrected command: `{{ i.fixed_command}}`
+
+{% endfor %}
+```
+
+You have up to {{max}} tries to achieve the given task, stop if you were not able
+to achieve it before that. If successful give a short technical summary.
+
+If you encounter errors, try to solve them.
