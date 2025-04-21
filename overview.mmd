@@ -11,17 +11,10 @@ flowchart TD
  subgraph executor["executor"]
         execute["Perform Task (gpt-4o)"]
         execute_decide{"Tool or Finished?"}
-        tool_call@{shape: procs, lable: "tool-call: SSH"}
+        tool_call["tool_call"]
         shell_history["Episodic Shell History"]
         message_history["Episodic Message History"]
   end
-
-    invalid_commands["Invalid Commands (cmd, descr, fix)"]
-    findings@{ shape: lin-cyl, label: "Target Environment Knowlege"}
-
-    update_knowledge["Update Knowledge (o3-mini)"]
-  
-  
     start(("Start")) -- "plan=None,task=None,summary='',knowledge='',leads=[]" --> replan
     replan <-. plan .-> ptt
     ptt -. plan .-> next
@@ -33,19 +26,17 @@ flowchart TD
     execute_decide -- cmd --> tool_call
     tool_call -- shell output --> execute_decide
     execute_decide -- result --> summarizer
-    summarizer -. summary, leads .-> replan
-    summarizer -. invalid commands .-> invalid_commands
-    invalid_commands -. invalid commands and fixes .-> execute
-    findings -. knowledge .-> execute
-    findings -. knowledge .-> replan
-    findings -. knowledge .-> next
+    summarizer -. summary, vulnerabilities, leads .-> replan
+    findings["Target Environment Knowlege"] -. knowledge .-> execute & replan & next
     execute_decide <-. cmd, cmd output .-> message_history
     execute_decide -. cmd, cmd output .-> shell_history
     shell_history -. cmd, cmd_output .-> summarizer
-    ptt@{ shape: lin-cyl}
-    shell_history@{ shape: lin-cyl}
-    message_history@{ shape: lin-cyl}
-    invalid_commands@{ shape: lin-cyl}
-    summarizer -- new findings --> update_knowledge
+    summarizer -- new knowledge, vulnerabilities --> update_knowledge["Update Knowledge (o3-mini)"]
+    summarizer -. leads .-> next
     update_knowledge <-. knowledge .-> findings
     update_knowledge --> replan
+    ptt@{ shape: lin-cyl}
+    tool_call@{ shape: procs}
+    shell_history@{ shape: lin-cyl}
+    message_history@{ shape: lin-cyl}
+    findings@{ shape: lin-cyl}

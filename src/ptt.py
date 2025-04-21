@@ -51,7 +51,7 @@ class PlanTestTreeStrategy:
         self.logger = logger
         self.plan = plan
 
-    def update_plan(self, last_task: Task, summary: str, knowledge: str, leads: List[str]) -> None:
+    def update_plan(self, last_task: Task, summary: str, knowledge: str, vulnerabilitites: List[str], leads: List[str]) -> None:
 
         if self.plan == None:
             target_plan = ''
@@ -84,12 +84,13 @@ class PlanTestTreeStrategy:
                                    (tok-tik).total_seconds())
         self.plan = result['parsed']
 
-    def select_next_task(self, knowledge, llm=None) -> PlanResult:
+    def select_next_task(self, knowledge, leads, llm=None) -> PlanResult:
 
         input = {
             'user_input': self.scenario,
             'plan': self.plan,
-            'knowledge': knowledge
+            'knowledge': knowledge,
+            'leads': leads
         }
 
         if llm == None:

@@ -3,11 +3,11 @@
 You are a professional penetration tester and are analying the log trace
 of recently executed commands. The commands were executed on a Kali linux
 virtual machine and target an Active Directory network as target environment.
- The goal of these commands was to `{{ task.next_step}}`.
+The goal of these commands was to `{{ task.next_step}}`.
 
 ## Background information for Task
 
-You were given the following background information:
+Before commands were executed you were given the following background information:
 
 ```markdown
 {{ task.next_step_context }}
@@ -15,7 +15,7 @@ You were given the following background information:
 
 ## Overall Result
 
-The overall result of the task was given as:
+The overall result of the task was described as (summary):
 
 ```markdown
 {{ summary }}
@@ -23,7 +23,7 @@ The overall result of the task was given as:
 
 ## Executed Steps
 
-The steps executed during the task were:
+The following commands were executed:
 
 {% for item in history %}
 ### Tool call: {{ item['tool'] }}
@@ -37,12 +37,11 @@ $ {{ item['cmd'] }}
 
 # Task
 
-Analyze the log trace for knowledge about the target environment (the Active
+Analyze the log trace for infomation about the target environment (the Active
 Directory network). Do not include information about the Kali Linux virtual
 machine or the tools used. Focus on the target environment and the
 information gathered from the executed commands.
 
-The goal is to extract
-actionable knowledge from the provided traces and enrich the provided
-summary with additional information gathered from the traces while keeping
-it concise.
+The goal is to extract actionable knowledge from the provided traces and
+enrich the provided summary with additional information gathered from
+the traces while keeping it concise.

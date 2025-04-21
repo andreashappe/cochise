@@ -31,6 +31,7 @@ When creating the task plan you must follow the following requirements:
 3.2.1. You can add additional information, e.g., relevant findings, to the tree structure as tree-items too.
 3.3. You can mark a task as non-relevant and ignore that task in the future. Only do this if a task is not relevant for reaching the objective anymore. You can always make a task relevant again.
 3.4. You must always include the full task plan as answer. If you are working on subquent task groups, still include previous taskgroups, i.e., when you work on task `2.` or `2.1.` you must still include all task groups such as `1.`, `2.`, etc. within the answer.
+3.5. Youa are also given the current knoweldge of the target environment, which you can use to update the task plan.
 
 Provide the hierarchical task plan as answer. Do not include a title or an appendix.
 
@@ -67,7 +68,7 @@ You have the following current knowledge about the target environment:
 ```
 Be aware that this knowledge may be incomplete or incorrect.
 
-During the last executed command, you identified the following potential vulnerabilities or leads:
+During the last executed command, you identified the following potential leads:
 
 {% for item in leads%}
     - {{ item }}

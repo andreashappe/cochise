@@ -21,6 +21,12 @@ You have the following knowledge about the target environment:
 ```
 Be aware that this knowledge may be incomplete or incorrect.
 
+During the last executed command, you identified the following potential leads:
+
+{% for item in leads%}
+    - {{ item }}
+{%endfor%}
+
 Include relevant information for the selected task as its context. This includes
 detailed information such as usernames, credentials, etc. You are allowed to
 gather this information from throughout the whole task plan.  Do only include information
