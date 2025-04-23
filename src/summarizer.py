@@ -6,7 +6,7 @@ from langchain_core.prompts import PromptTemplate
 from common import Task, AnalyzedExecution
 from rich.panel import Panel
 
-TEMPLATE_DIR = pathlib.Path(__file__).parent.parent / "templates"
+TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
 TEMPLATE_RESULT = PromptTemplate.from_file(str(TEMPLATE_DIR / 'summarizer.md.jinja2'), template_format='jinja2')
 
 def summarize(console, llm, logger, SCENARIO:str, task:Task, summary:str, history) -> AnalyzedExecution:

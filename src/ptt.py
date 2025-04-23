@@ -11,7 +11,6 @@ from langchain_core.prompts import PromptTemplate
 TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
 TEMPLATE_UPDATE = PromptTemplate.from_file(str(TEMPLATE_DIR / 'ptt_update.md.jinja2'), template_format='jinja2')
 TEMPLATE_NEXT   = PromptTemplate.from_file(str(TEMPLATE_DIR / 'ptt_next.md.jinja2'), template_format='jinja2')
-TEMPLATE_COMBINED = PromptTemplate.from_file(str(TEMPLATE_DIR / 'ptt_combined.md.jinja2'), template_format='jinja2')
 
 class PlanFinished(BaseModel):
     """Response to user."""
@@ -24,10 +23,10 @@ class UpdatedPlan(BaseModel):
         description="the newly updated hierchical plan."
     )
 
-    next_task: Union[PlanFinished, Task] = Field(
-        description="The next task to perform. If you want to respond to user, use Response. "
-        "If you need to further use tools to get the answer, use Plan."
-    )
+    #next_task: Union[PlanFinished, Task] = Field(
+    #    description="The next task to perform. If you want to respond to user, use Response. "
+    #    "If you need to further use tools to get the answer, use Plan."
+    #)
 
 class PlanResult(BaseModel):
     """Action to perform."""
@@ -49,7 +48,7 @@ class PlanTestTreeStrategy:
         self.logger = logger
         self.plan = plan
 
-    def update_plan(self, last_task: Task, summary: str, knowledge: str, vulnerabilitites: List[str], findings: List[str], leads: List[str]) -> None:
+    def update_plan(self, last_task: Task, summary: str, knowledge: str, vulnerabilitites: List[str], findings: List[str], leads: List[str]) -> Union[PlanFinished, Task]:
 
         if self.plan == None:
             target_plan = ''
@@ -71,58 +70,13 @@ class PlanTestTreeStrategy:
         result = replanner.invoke(input)
         tok = datetime.datetime.now()
 
-        print(str(result['parsed'].next_task))
-
         self.logger.write_llm_call('strategy_update', 
                                    TEMPLATE_UPDATE.invoke(input).text,
                                    result['parsed'].plan,
                                    result['raw'].response_metadata,
                                    (tok-tik).total_seconds())
         self.plan = result['parsed']
-
-    def combined(self, last_task: Task, summary: str, knowledge:str, findings: List[str], leads: List[str], task_history=List[str], llm=None) -> PlanResult:
-
-        if self.plan == None:
-            target_plan = ''
-        else:
-            target_plan = self.plan.plan
-
-        input = {
-            'user_input': self.scenario,
-            'plan': target_plan,
-            'last_task': last_task,
-            'summary': summary,
-            'knowledge': knowledge,
-            'leads': leads,
-            'findings': findings,
-            'task_history': task_history
-        }
-
-        if llm == None:
-            llm = self.llm
-
-        select = TEMPLATE_NEXT | llm.with_structured_output(UpdatedPlan, include_raw=True)
-        tik = datetime.datetime.now()
-        result = select.invoke(input)
-        tok = datetime.datetime.now()
-
-        self.plan = result['parsed']
-        if isinstance(result['parsed'].next_task, PlanFinished):
-            self.logger.write_llm_call('strategy_finished', 
-                                       TEMPLATE_NEXT.invoke(input).text,
-                                       result['parsed'].next_task.response,
-                                       result['raw'].response_metadata,
-                                       (tok-tik).total_seconds())
-        else:
-            self.logger.write_llm_call('strategy_next_task', 
-                                       TEMPLATE_NEXT.invoke(input).text,
-                                       {
-                                            'next_step': result['parsed'].next_task.next_step,
-                                            'next_step_context': result['parsed'].next_task.next_step_context
-                                       },
-                                       result['raw'].response_metadata,
-                                       (tok-tik).total_seconds())
-        return result['parsed']
+        #return result['parsed'].next_task
 
     def select_next_task(self, knowledge, leads, task_history, llm=None) -> PlanResult:
 

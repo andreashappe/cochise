@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from common import Task, get_or_fail
 from executor import executor_run
-from knowledge import update_knowledge
+from knowledge import knowlege_to_attack_plan, update_knowledge
 from ptt import PlanTestTreeStrategy
 from kalissh import get_ssh_connection_from_env, SshExecuteTool, SSHConnection
 
@@ -15,7 +15,7 @@ from rich.pretty import Pretty
 from rich.markdown import Markdown
 
 from logger import Logger
-from summarizers.text_history import summarize
+from summarizer import summarize
 
 # setup logggin console for now
 console = Console()
@@ -112,8 +112,6 @@ async def main(conn:SSHConnection) -> None:
             high_level_planner.update_plan(task, summary, knowledge, vulnerabilities, findings, leads)
             console.print(Panel(high_level_planner.get_plan().plan, title="Updated Plan"))
             result = high_level_planner.select_next_task(knowledge, leads, task_history)
-
-            # result = high_level_planner.combined(task, summary, knowledge, findings, leads, task_history)
         
         if isinstance(result.action, Task):
             task = result.action
@@ -135,9 +133,11 @@ async def main(conn:SSHConnection) -> None:
             task_history += task.next_step
             leads = analyzed_execution.potential_next_steps
             summary = analyzed_execution.summary
+
+            knowlege_to_attack_plan(llm_knowledge, logger, SCENARIO, knowledge, high_level_planner.get_plan().plan)
         else:
             done = True
 
-    console.print(Panel(Pretty(result)), title='Plan Finished')
+    console.print(Panel(Pretty(result), title='Plan Finished'))
 
 asyncio.run(main(conn))

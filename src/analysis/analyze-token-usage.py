@@ -72,6 +72,6 @@ if __name__=='__main__':
             str(i['completions']),
             str(i['reasoning']),
             str(i['cached']),
-            str(i['duration'])
+            str(round(i['duration'], 2))
         )
     console.print(table)
