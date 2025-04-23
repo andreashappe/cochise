@@ -14,12 +14,21 @@ From all the tasks, identify those that can be performed next. Analyze those
 tasks and decide which one should be performed next based on their likelihood to
 achieve the objective.
 
+Include relevant information for the selected task as its context. This includes
+detailed information such as usernames, credentials, etc. You are allowed to
+gather this information from both the task plan as well as from the stated
+background information. Do only include information
+that is specific to our objective, do not generic information. Be concise.
+
+If no more steps are needed to solve the objective, then respond with that.
+
+# background information
+
 You have the following knowledge about the target environment:
 
 ```markdown
 {{ knowledge }}
 ```
-Be aware that this knowledge may be incomplete or incorrect.
 
 During the last executed command, you identified the following potential leads:
 
@@ -34,10 +43,3 @@ You already executed the following tasks in prior rounds:
 {% endfor %}
 
 Don't repeat tasks that you already performed before.
-
-Include relevant information for the selected task as its context. This includes
-detailed information such as usernames, credentials, etc. You are allowed to
-gather this information from throughout the whole task plan.  Do only include information
-that is specific to our objective, do not generic information. Be very concise.
-
-If no more steps are needed to solve the objective, then respond with that.

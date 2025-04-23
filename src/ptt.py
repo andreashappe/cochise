@@ -48,7 +48,7 @@ class PlanTestTreeStrategy:
         self.logger = logger
         self.plan = plan
 
-    def update_plan(self, last_task: Task, summary: str, knowledge: str, vulnerabilitites: List[str], findings: List[str], leads: List[str]) -> Union[PlanFinished, Task]:
+    def update_plan(self, last_task: Task, summary: str, knowledge: str, findings: str, leads: List[str], suggestions:str) -> Union[PlanFinished, Task]:
 
         if self.plan == None:
             target_plan = ''
@@ -62,7 +62,8 @@ class PlanTestTreeStrategy:
             'summary': summary,
             'knowledge': knowledge,
             'findings': findings,
-            'leads': leads
+            'leads': leads,
+            'suggestions': suggestions
         }
 
         replanner = TEMPLATE_UPDATE | self.llm.with_structured_output(UpdatedPlan, include_raw=True)

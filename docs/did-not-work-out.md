@@ -37,9 +37,12 @@ Removed for now.
 
 # Currently undecided
 
+- o4-mini is hallucinating a lot during summarization
 - maybe the invalid-commands were not that bad, seems my results are getting worse
 - trying to integrate next-command and update-plan
 - allowing update-knowledge to use markdown tables
     - I feel while this looks good, the subsequent results were
       not really better
 - merging 'next-command' and 'update-plan' into one step
+    - more or less neutral
+- always generate a summary within executor & make summarize more light-weight (find findings, leads, invalid_commands)

@@ -57,6 +57,18 @@ Provide the hierarchical task plan as answer. Do not include a title or an appen
 
 {% endif %}
 
+# Suggestions for Plan Improvment
+
+{{ suggestions }}
+
+# Target Environment Knowledge
+
+You have the following knowledge about the target environment:
+
+```markdown
+{{ knowledge}}
+```
+
 {% if last_task != None %}
 # Recently executed task
  
@@ -72,22 +84,11 @@ You have recently executed the following commands. Integrate findings and result
 {{ summary }}
 ```
 
-You have the following current knowledge about the target environment:
-
-```markdown
-{{ knowledge}}
-```
-Be aware that this knowledge may be incomplete or incorrect.
-
-```markdown
-{{ summary }}
-```
-
 During task execution you gathered the following findings:
 
-{% for item in findings %}
-    - {{ item }}
-{%endfor%}
+```
+{{ findings }}
+```
 
 The following suggestions for potential attacks were discovered during the last task execution:
 

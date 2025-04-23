@@ -8,12 +8,13 @@ TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
 TEMPLATE_KNOWLEDGE = PromptTemplate.from_file(str(TEMPLATE_DIR / 'update_knowledge.md.jinja2'), template_format='jinja2')
 TEMPLATE_KNOWLEDGE_TO_PLAN = PromptTemplate.from_file(str(TEMPLATE_DIR / 'suggest_attack_plan_changes.md.jinja2'), template_format='jinja2')
 
-def update_knowledge(llm, logger, knowledge:str, new_knowledge:List[str], vulnerabilities:List[str]) -> str:
+def update_knowledge(llm, logger, knowledge:str, new_knowledge:List[str], task, summary) -> str:
 
     input = {
             'exisiting_knowledge': knowledge,
             'new_knowledge': new_knowledge,
-            'vulnerabilities': vulnerabilities
+            'last_task': task,
+            'summary': summary
     }
 
     # try to get a list of findings (disabled for now)
@@ -50,4 +51,4 @@ def knowlege_to_attack_plan(llm, logger, scenario:str, knowledge:str, plan:str) 
                       costs=result.response_metadata,
                       duration=(tok-tik).total_seconds())
 
-    print(str(result.content))
+    return result.content

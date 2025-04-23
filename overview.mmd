@@ -4,24 +4,26 @@ config:
 ---
 flowchart TD
  subgraph planner["planner"]
-        replan["Update Plan (o3-mini)"]
-        next{"Select Next Task (o3-mini)"}
+        replan["Update Plan (o4-mini)"]
+        next{"Select Next Task (o4-mini)"}
         ptt["Pentest Task Tree"]
   end
  subgraph executor["executor"]
-        execute["Perform Task (gpt-4o)"]
+        execute["Perform Task (gpt-4.1)"]
         execute_decide{"Tool or Finished?"}
         tool_call["tool_call"]
         shell_history["Episodic Shell History"]
         message_history["Episodic Message History"]
   end
+
+    summarizer["Summarizer (o4-mini)"]
     start(("Start")) -- "plan=None,task=None,summary='',knowledge='',leads=[]" --> replan
     replan <-. plan .-> ptt
     ptt -. plan .-> next
     replan --> next
     next -- task, context --> execute
     next --> finish((("done")))
-    next -. task, context .-> summarizer["Summarizer (o3-mini)"] & replan
+    next -. task, context .-> summarizer & replan
     execute --> execute_decide
     execute_decide -- cmd --> tool_call
     tool_call -- shell output --> execute_decide
@@ -30,9 +32,11 @@ flowchart TD
     findings["Target Environment Knowlege"] -. knowledge .-> execute & replan & next
     execute_decide <-. cmd, cmd output .-> message_history
     execute_decide -. cmd, cmd output .-> shell_history
-    shell_history -. cmd, cmd_output .-> summarizer
-    summarizer -- new knowledge, vulnerabilities --> update_knowledge["Update Knowledge (o3-mini)"]
+    shell_history -. history .-> summarizer
+    summarizer -- new knowledge --> update_knowledge["Update Knowledge (o4-mini)"]
     summarizer -. leads .-> next
+    summarizer -. invalid_commands .-> invalid_commands
+    invalid_commands -. invalid_commands .-> execute
     update_knowledge <-. knowledge .-> findings
     update_knowledge --> replan
     ptt@{ shape: lin-cyl}
@@ -40,3 +44,4 @@ flowchart TD
     shell_history@{ shape: lin-cyl}
     message_history@{ shape: lin-cyl}
     findings@{ shape: lin-cyl}
+    invalid_commands@{ shape: lin-cyl}

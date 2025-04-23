@@ -5,12 +5,14 @@ import pathlib
 from dataclasses import dataclass
 
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, PromptTemplate
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 
 from rich.panel import Panel
+from rich.pretty import Pretty
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeElapsedColumn
 
 from common import Task
+from summarizer import AnalyzedExecution
 
 TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
 PROMPT = PromptTemplate.from_file(str(TEMPLATE_DIR / 'executor_prompt.md.jinja2'), template_format='jinja2')
@@ -37,7 +39,9 @@ async def perform_tool_call(tool_call, tool):
         'result': tool_msg.content
     }
 
-async def executor_run(SCENARIO, task: Task, knowledge, invalid_commands, llm2_with_tools, tools, console, logger):
+async def executor_run(SCENARIO, task: Task, knowledge, invalid_commands, llm, tools, console, logger):
+
+    llm_with_tools = llm.bind_tools(tools)
 
     # create a string -> tool mapping
     mapping = {}
@@ -58,15 +62,21 @@ async def executor_run(SCENARIO, task: Task, knowledge, invalid_commands, llm2_w
             }).text
     
     # the initial prompt
-    chat_template = ChatPromptTemplate.from_messages(
-        [
-            SystemMessage(content=SCENARIO),
-            HumanMessagePromptTemplate.from_template(text)
-        ]
-    )
+    #chat_template = ChatPromptTemplate.from_messages(
+    #    [
+            #SystemMessage(content=SCENARIO),
+            #HumanMessagePromptTemplate.from_template(text)
+        #]
+    #)
 
     # our message history
-    messages = chat_template.format_messages(task=task, max=(MAX_ROUNDS-1))
+    #messages = chat_template.format_messages(task=task, max=(MAX_ROUNDS-1))
+    messages = [
+            SystemMessage(content=SCENARIO),
+            HumanMessage(content=text)
+    ]
+
+    print(str(messages))
 
     # try to solve our sub-task
     round = 1
@@ -76,7 +86,7 @@ async def executor_run(SCENARIO, task: Task, knowledge, invalid_commands, llm2_w
 
         with console.status("[bold green]executor: thinking") as status:
             tik = datetime.datetime.now()
-            ai_msg = llm2_with_tools.invoke(messages)
+            ai_msg = llm_with_tools.invoke(messages)
             tok = datetime.datetime.now()
 
         messages.append(ai_msg)
@@ -122,5 +132,46 @@ async def executor_run(SCENARIO, task: Task, knowledge, invalid_commands, llm2_w
             summary = ai_msg.content
             break
         round = round + 1
+
+    # this happens if we run out of rounds
+    if summary == None:
+        assert(round >= MAX_ROUNDS)
+        # try to get a list of findings (disabled for now)
+        messages.append(HumanMessage(content="Go through the commands and their outputs and create a technical summary."))
+        tik = datetime.datetime.now()
+        summary = llm.invoke(messages)
+        tok = datetime.datetime.now()
+        messages.append(summary)
+        logger.write_llm_call('executor_summary_missing', prompt='',
+                              result=summary.content,
+                              costs=summary.response_metadata,
+                              duration=(tok-tik).total_seconds())
+        summary = summary.content
+        console.print(Panel(summary, title="Ended without Summary!"))
+
+
+    # do some analysis here..
+    #messages.append(HumanMessage(content="Analyze exeucted commands and their outputs for both leads/vulnerabilities that were not part of your original task, as well as for commands that failed due to invalid executions."))
+    #tik = datetime.datetime.now()
+    #result = llm.with_structured_output(AnalyzedExecution, include_raw=True).invoke(messages)
+    #tok = datetime.datetime.now()
+    #messages.append(result)
+    #logger.write_llm_call('executor_result_leads', prompt='',
+    #                      result=result['parsed'],
+    #                      costs=result['raw'].response_metadata,
+    #                      duration=(tok-tik).total_seconds())
+    #console.print(Panel(Pretty(result['parsed']), title="Additional Leads"))
+
+    # do some analysis here..
+    #messages.append(HumanMessage(content="Go through the commands and their outputs and identify command executions that were not successful due to errors. For each occurance also identify how the command should be invoked correctly."))
+    #tik = datetime.datetime.now()
+    #result = llm.invoke(messages)
+    #tok = datetime.datetime.now()
+    #messages.append(result)
+    #logger.write_llm_call('executor_result_leads', prompt='',
+    #                      result=result.content,
+    #                      costs=result.response_metadata,
+    #                      duration=(tok-tik).total_seconds())
+    #console.print(Panel(result.content, title="Command Fixes"))
 
     return summary, history

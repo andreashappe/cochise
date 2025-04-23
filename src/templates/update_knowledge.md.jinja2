@@ -11,23 +11,32 @@ You already have the following knowledge about the target environment:
 {{ exisiting_knowledge }}
 ```
 
-During a recent engagement, you gathered the following new information:
+During a recent engagement, the following task was executed:
 
 ```
+{{ last_task.next_step }}
+```
+The task was executed with the following context:
+
+```
+{{ last_task.next_step_context }}
+```
+The task was executed with the following result:
+
+```markdown
+{{ summary }}
+```
+
+The following findings were gathered during the task execution:
+
+```markdown
 {{ new_knowledge }}
 ```
 
-You gathered the following information about vulnerabilities:
-
-```
-{{ vulnerabilities }}
-```
-
 Update the existing knowledge base with the new information. Ensure that the
-new knowledge is properly categorized and formatted as as Markdown, you are
-allowed to use advanced markdown features such as hierarchical lists.
+new knowledge is properly categorized and formatted as as Markdown.
 
-Make sure to include relevenat information, e.g., compromised accounts, credentials, and
+Make sure to include relevant information, e.g., compromised accounts, credentials, and
 vulnerabilities, tokens, hashes, compromised systems. Also include information
 about successful attacks.
 

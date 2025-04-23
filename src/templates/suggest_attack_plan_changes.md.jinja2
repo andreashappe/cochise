@@ -1,14 +1,23 @@
 {{ SCENARIO }}
 
-Given the current task plan and the knowledge about the target environment, suggest changes to the task plan.
+Given the current task plan and the knowledge about the target environment,
+suggest changes to the task plan. After your changes are applied, the task plan should be
+concise, comprehensive, and organized. The resulting plan should:
+
+- only include tasks that can be performed with the current knowledge
+- when giving commands, they should not include palceholders but be based upon data gathered from the knowledge
+- contain no tasks that are dependent upon the result of tasks that are not yet performed
 
 The current Task plan is:
 
 ```
 {{ plan }}
 ```
+
 The current knowledge about the target environment is:
 
 ```markdown
 {{ knowledge }}
 ```
+
+Don't state the new task plan as answer, but only the changes to the task plan.

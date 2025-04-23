@@ -77,10 +77,8 @@ Don't overcomplicate things.
 
 # create the graph
 llm_strategy = ChatOpenAI(model="o4-mini")
-
+llm_executor = ChatOpenAI(model="gpt-4.1", temperature=0)
 tools = [SshExecuteTool(conn)]
-llm_with_tools = ChatOpenAI(model="gpt-4.1", temperature=0).bind_tools(tools)
-
 llm_summary = ChatOpenAI(model="gpt-4.1", temperature=0)
 llm_knowledge = ChatOpenAI(model="o4-mini")
 
@@ -91,7 +89,6 @@ old_state = None
 high_level_planner = PlanTestTreeStrategy(llm_strategy, SCENARIO, logger, plan = old_state)
 
 async def main(conn:SSHConnection) -> None:
-    analyzed_execution = None
     task: Task = None
     done: bool = False
 
@@ -101,7 +98,7 @@ async def main(conn:SSHConnection) -> None:
     invalid_commands = []
     task_history = []
     summary = None
-    vulnerabilities = []
+    suggestions = ''
 
     # open SSH connection
     await conn.connect()
@@ -109,32 +106,33 @@ async def main(conn:SSHConnection) -> None:
     while not done:
 
         with console.status("[bold green]llm-call: updating plan and selecting next task") as status:
-            high_level_planner.update_plan(task, summary, knowledge, vulnerabilities, findings, leads)
+            high_level_planner.update_plan(task, summary, knowledge, findings, leads, suggestions)
             console.print(Panel(high_level_planner.get_plan().plan, title="Updated Plan"))
             result = high_level_planner.select_next_task(knowledge, leads, task_history)
         
         if isinstance(result.action, Task):
             task = result.action
             console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
-            result, history = await executor_run(SCENARIO, task, knowledge, invalid_commands, llm_with_tools, tools, console, logger)
+            summary, history = await executor_run(SCENARIO, task, knowledge, invalid_commands, llm_executor, tools, console, logger)
+            console.print(Panel(summary, title='Result Summary'))
 
-            with console.status("[bold green]llm-call: analyze response") as status:
-                # summarize the result and create the findings list
-                analyzed_execution = summarize(console, llm_summary, logger, SCENARIO, task, result, history)
-                vulnerabilities = analyzed_execution.vulnerabilities
-                console.print(Panel(Pretty(analyzed_execution), title='Analyzed Execution'))
+            #with console.status("[bold green]llm-call: analyze response") as status:
+                # try to gather additional insights from the current command execution
+                #findings, leads, current_invalid_commands = summarize(console, llm_summary, logger, SCENARIO, task, history)
+                #invalid_commands += current_invalid_commands
+
+                #console.print(Panel(findings, title='Findings'))
+                #console.print(Panel(Pretty(leads), title='Leads'))
+                #console.print(Panel(Pretty(current_invalid_commands), title='Current Invalid Commands'))
 
             with console.status("[bold green]llm-call: update knowledge") as status:
-                knowledge = update_knowledge(llm_knowledge, logger, knowledge, analyzed_execution.gathered_knowledge, vulnerabilities)
-                findings = analyzed_execution.gathered_knowledge
-                invalid_commands = analyzed_execution.invalid_commands
+                knowledge = update_knowledge(llm_knowledge, logger, knowledge, task, summary, findings)
                 console.print(Panel(Markdown(knowledge), title='Updated Knowledge'))
 
             task_history += task.next_step
-            leads = analyzed_execution.potential_next_steps
-            summary = analyzed_execution.summary
 
-            knowlege_to_attack_plan(llm_knowledge, logger, SCENARIO, knowledge, high_level_planner.get_plan().plan)
+            suggestions = knowlege_to_attack_plan(llm_knowledge, logger, SCENARIO, knowledge, high_level_planner.get_plan().plan)
+            console.print(Panel(suggestions, title="Suggestions"))
         else:
             done = True
 
