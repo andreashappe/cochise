@@ -81,7 +81,7 @@ llm_strategy = ChatOpenAI(model="o4-mini")
 tools = [SshExecuteTool(conn)]
 llm_with_tools = ChatOpenAI(model="gpt-4.1", temperature=0).bind_tools(tools)
 
-llm_summary = ChatOpenAI(model="o4-mini")
+llm_summary = ChatOpenAI(model="gpt-4.1", temperature=0)
 llm_knowledge = ChatOpenAI(model="o4-mini")
 
 # re-use an old stored state? if not, set old_state to ''
@@ -101,6 +101,7 @@ async def main(conn:SSHConnection) -> None:
     invalid_commands = []
     task_history = []
     summary = None
+    vulnerabilities = []
 
     # open SSH connection
     await conn.connect()
@@ -108,21 +109,25 @@ async def main(conn:SSHConnection) -> None:
     while not done:
 
         with console.status("[bold green]llm-call: updating plan and selecting next task") as status:
-            result = high_level_planner.combined(task, summary, knowledge, findings, leads, task_history)
+            high_level_planner.update_plan(task, summary, knowledge, vulnerabilities, findings, leads)
             console.print(Panel(high_level_planner.get_plan().plan, title="Updated Plan"))
+            result = high_level_planner.select_next_task(knowledge, leads, task_history)
+
+            # result = high_level_planner.combined(task, summary, knowledge, findings, leads, task_history)
         
-        if isinstance(result.next_task, Task):
-            task = result.next_task
+        if isinstance(result.action, Task):
+            task = result.action
             console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
             result, history = await executor_run(SCENARIO, task, knowledge, invalid_commands, llm_with_tools, tools, console, logger)
 
             with console.status("[bold green]llm-call: analyze response") as status:
                 # summarize the result and create the findings list
                 analyzed_execution = summarize(console, llm_summary, logger, SCENARIO, task, result, history)
+                vulnerabilities = analyzed_execution.vulnerabilities
                 console.print(Panel(Pretty(analyzed_execution), title='Analyzed Execution'))
 
             with console.status("[bold green]llm-call: update knowledge") as status:
-                knowledge = update_knowledge(llm_knowledge, logger, knowledge, analyzed_execution.gathered_knowledge, analyzed_execution.vulnerabilities)
+                knowledge = update_knowledge(llm_knowledge, logger, knowledge, analyzed_execution.gathered_knowledge, vulnerabilities)
                 findings = analyzed_execution.gathered_knowledge
                 invalid_commands = analyzed_execution.invalid_commands
                 console.print(Panel(Markdown(knowledge), title='Updated Knowledge'))

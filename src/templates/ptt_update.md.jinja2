@@ -3,10 +3,20 @@ You are given the following objective by the user:
 ```
 {{ user_input }}
 ```
-
 You are required to strategize and create a tree-structured task plan that will allow to successfully solve the objective.
 Workers will follow your task plan to complete the objective, and will report after each finished task back to you.
 You should use this feedback to update the task plan.
+
+Design the attack plan guided by the principles of the Mandiant Attack Lifcyle and by the TTPs indicated by MITRE ATT&CK.
+Don't overengineer the task plan by including too many (>=4) future tasks for which you don't have any current evidence.
+Be agile and redesign the task plan when new evidence suggest redoing already done steps.
+
+From all the updated tasks, identify those that can be performed next. Analyze those
+tasks and decide which one should be performed next based on their likelihood to
+achieve the objective. Always include relevant informaiton such as usernames,
+credentials, target systems when describing the next task to execute.
+
+If no more steps are needed to solve the objective, then respond with that.
 
 When creating the task plan you must follow the following requirements:
 
@@ -22,16 +32,17 @@ When creating the task plan you must follow the following requirements:
 
 2.1. This plan should involve individual tasks, that if executed correctly will yield the correct answer.
 2.2. Do not add any superfluous steps but make sure that each step has all the information
+2.2.2. Include relevant information for task execution, e.g., relevant usernames or the domain the task is for
+2.2.2. You can add additional information, e.g., relevant findings, to the tree structure as tree-items too.
 2.3. Be concise with each task description but do not leave out relevant information needed - do not skip steps.
 
-3. Each time you receive results from the worker you should 
-
-3.1. Analyze the results and identify information that might be relevant for solving your objective through future steps.
+3. Each time you receive new findings/knowledge
+3.1. Analyze their impact upon the exising task tree. Identify information that might be relevant for solving your objective through future steps.
 3.2. Add new tasks or update existing task information according to the findings.
 3.2.1. You can add additional information, e.g., relevant findings, to the tree structure as tree-items too.
 3.3. You can mark a task as non-relevant and ignore that task in the future. Only do this if a task is not relevant for reaching the objective anymore. You can always make a task relevant again.
 3.4. You must always include the full task plan as answer. If you are working on subquent task groups, still include previous taskgroups, i.e., when you work on task `2.` or `2.1.` you must still include all task groups such as `1.`, `2.`, etc. within the answer.
-3.5. Youa are also given the current knoweldge of the target environment, which you can use to update the task plan.
+3.5. If a task has been completed, mark the respective task tree item as completed and add information about how the task was completed and what the results were
 
 Provide the hierarchical task plan as answer. Do not include a title or an appendix.
 
@@ -68,9 +79,19 @@ You have the following current knowledge about the target environment:
 ```
 Be aware that this knowledge may be incomplete or incorrect.
 
-During the last executed command, you identified the following potential leads:
+```markdown
+{{ summary }}
+```
 
-{% for item in leads%}
+During task execution you gathered the following findings:
+
+{% for item in findings %}
+    - {{ item }}
+{%endfor%}
+
+The following suggestions for potential attacks were discovered during the last task execution:
+
+{% for item in leads %}
     - {{ item }}
 {%endfor%}
 

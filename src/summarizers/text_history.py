@@ -39,4 +39,7 @@ def summarize(console, llm, logger, SCENARIO:str, task:Task, summary:str, histor
                       duration=(tok-tik).total_seconds())
     console.log("Finished low-level executor run..")
 
+    if summary != None and summary != '':
+        analyzed.summary = summary
+
     return analyzed

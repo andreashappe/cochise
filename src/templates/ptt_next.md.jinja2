@@ -27,6 +27,14 @@ During the last executed command, you identified the following potential leads:
     - {{ item }}
 {%endfor%}
 
+You already executed the following tasks in prior rounds:
+
+{% for i in task_history %}
+- {{ i }}
+{% endfor %}
+
+Don't repeat tasks that you already performed before.
+
 Include relevant information for the selected task as its context. This includes
 detailed information such as usernames, credentials, etc. You are allowed to
 gather this information from throughout the whole task plan.  Do only include information

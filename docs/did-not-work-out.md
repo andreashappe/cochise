@@ -35,8 +35,11 @@ Removed for now.
 - LLM might have been overwhelmed with the differentiation into knowledge and assumptions
 - removed
 
-
 # Currently undecided
 
 - maybe the invalid-commands were not that bad, seems my results are getting worse
 - trying to integrate next-command and update-plan
+- allowing update-knowledge to use markdown tables
+    - I feel while this looks good, the subsequent results were
+      not really better
+- merging 'next-command' and 'update-plan' into one step

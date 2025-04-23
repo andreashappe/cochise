@@ -49,7 +49,7 @@ class PlanTestTreeStrategy:
         self.logger = logger
         self.plan = plan
 
-    def update_plan(self, last_task: Task, summary: str, knowledge: str, vulnerabilitites: List[str], leads: List[str]) -> None:
+    def update_plan(self, last_task: Task, summary: str, knowledge: str, vulnerabilitites: List[str], findings: List[str], leads: List[str]) -> None:
 
         if self.plan == None:
             target_plan = ''
@@ -62,6 +62,7 @@ class PlanTestTreeStrategy:
             'last_task': last_task,
             'summary': summary,
             'knowledge': knowledge,
+            'findings': findings,
             'leads': leads
         }
 
@@ -69,6 +70,8 @@ class PlanTestTreeStrategy:
         tik = datetime.datetime.now()
         result = replanner.invoke(input)
         tok = datetime.datetime.now()
+
+        print(str(result['parsed'].next_task))
 
         self.logger.write_llm_call('strategy_update', 
                                    TEMPLATE_UPDATE.invoke(input).text,
@@ -121,13 +124,14 @@ class PlanTestTreeStrategy:
                                        (tok-tik).total_seconds())
         return result['parsed']
 
-    def select_next_task(self, knowledge, leads, llm=None) -> PlanResult:
+    def select_next_task(self, knowledge, leads, task_history, llm=None) -> PlanResult:
 
         input = {
             'user_input': self.scenario,
             'plan': self.plan,
             'knowledge': knowledge,
-            'leads': leads
+            'leads': leads,
+            'task_history': task_history
         }
 
         if llm == None:
