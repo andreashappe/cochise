@@ -20,6 +20,21 @@ class Task(BaseModel):
         description = "Concise Context for worker that executes the next step. Can be formated as a markdown list."
     )
 
+class InvalidCommand(BaseModel):
+    """This describes a command that was not executed successfully due to a parameter error."""
+
+    command: str = Field(
+        description="The command that was not executed successfully."
+    )
+
+    problem: str = Field(
+        description="The problem that occured during execution. Start with the basename of the involved command, followed by a ':'"
+    )
+
+    fixed_command: str = Field(
+        description="How would you fix the problem? Give an example how the command should be correctly executed."
+    )
+
 class AnalyzedExecution(BaseModel):
     """Analysis of an executed task which describes the overall result."""
 
@@ -34,9 +49,13 @@ class AnalyzedExecution(BaseModel):
     )
 
     vulnerabilities: List[str] = Field(
-        description = "A list of exploited or concrete vulnerabilties or missconfigurations that occurred during task execution. This can include concrete informaiton (such as credentials or tokens) that could be abused during future steps. This can include leads if there is concrete evidence for their exploitability."""
+        description = "Exploitable vulnerabilities that were found during the execution of the task."
     )
 
     potential_next_steps: List[str] = Field(
-        description="What would be good next steps to execute based upon the current log trace. If possible, give concrete commands that could be executed."""
+        description="What would be good next steps to execute based upon the current log trace."""
+    )
+
+    invalid_commands: List[InvalidCommand] = Field(
+        description="A list of invalid commands that were not executed successfully."
     )

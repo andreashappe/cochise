@@ -46,6 +46,14 @@ class Logger:
         self.file_logger.info(f"{name} result\n{result}")
         self.file_logger.info(f"{name} costs\n{str(costs)}\tduration: {str(duration)}")
 
+        model = costs['model_name']
+        total = costs['token_usage']['total_tokens']
+        prompt = costs['token_usage']['prompt_tokens']
+        completions = costs['token_usage']['completion_tokens']
+        reasoning = costs['token_usage']['completion_tokens_details']['reasoning_tokens']
+        cached = costs['token_usage']['prompt_tokens_details']['cached_tokens']
+        print(f"{name} ({model}) costs: {total} ({prompt}/{completions}/{reasoning}/{cached}\tduration: {str(duration)}")
+
     def write_executor_tool_call(self, name, cmd, exit_code, result):
         self.logger.info(name, cmd=cmd, exit_code=exit_code, result=result)
 

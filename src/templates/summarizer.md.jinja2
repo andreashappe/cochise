@@ -1,9 +1,21 @@
-# Goal
+{{SCENARIO}}
 
-You are a professional penetration tester and are analying the log trace
-of recently executed commands. The commands were executed on a Kali linux
-virtual machine and target an Active Directory network as target environment.
+You are currently tasked with analying the log trace of recently executed commands.
 The goal of these commands was to `{{ task.next_step}}`.
+
+Analyze the log trace for infomation about the target environment (the Active
+Directory network). Do not include information about the Kali Linux virtual
+machine or the tools used. Focus on the target environment and the
+information gathered from the executed commands. Take care to include
+information that is relevant for the task at hand, e.g., identified
+usernames, passwords, tokens, hashes, and other credentials. Also include
+information about successful attacks, e.g., compromised accounts, systems,
+and vulnerabilities. It is of highest importance that you include the full
+hashes or tokens.
+
+The goal is to extract actionable knowledge from the provided traces and
+enrich the provided summary with additional information gathered from
+the traces while keeping it concise.
 
 ## Background information for Task
 
@@ -12,15 +24,6 @@ Before commands were executed you were given the following background informatio
 ```markdown
 {{ task.next_step_context }}
 ```
-
-## Overall Result
-
-The overall result of the task was described as (summary):
-
-```markdown
-{{ summary }}
-```
-
 ## Executed Steps
 
 The following commands were executed:
@@ -34,14 +37,3 @@ $ {{ item['cmd'] }}
 {{ item['result'] }}
 ```
 {% endfor %}
-
-# Task
-
-Analyze the log trace for infomation about the target environment (the Active
-Directory network). Do not include information about the Kali Linux virtual
-machine or the tools used. Focus on the target environment and the
-information gathered from the executed commands.
-
-The goal is to extract actionable knowledge from the provided traces and
-enrich the provided summary with additional information gathered from
-the traces while keeping it concise.

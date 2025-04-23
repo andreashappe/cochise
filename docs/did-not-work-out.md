@@ -34,3 +34,9 @@ Removed for now.
 - quality did not look well when using `o4-mini`
 - LLM might have been overwhelmed with the differentiation into knowledge and assumptions
 - removed
+
+
+# Currently undecided
+
+- maybe the invalid-commands were not that bad, seems my results are getting worse
+- trying to integrate next-command and update-plan

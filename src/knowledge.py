@@ -26,13 +26,17 @@ def update_knowledge(llm, logger, knowledge:str, new_knowledge:List[str], vulner
     }
 
     # try to get a list of findings (disabled for now)
-    tik = datetime.datetime.now()
     summarizer = TEMPLATE_KNOWLEDGE| llm.with_structured_output(KnowledgeUpdate, include_raw=True)
+
+    tik = datetime.datetime.now()
     result = summarizer.invoke(input)
-    aggregated = result['parsed']
     tok = datetime.datetime.now()
 
-    print(str(result['raw'].response_metadata))
+    aggregated = result['parsed']
+
+    if aggregated == None:
+        print(str(result))
+
     logger.write_llm_call('update_knowledge', prompt='',
                       result=aggregated,
                       costs=result['raw'].response_metadata,
