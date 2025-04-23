@@ -1,5 +1,4 @@
 import asyncio
-from typing import List
 
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -79,8 +78,7 @@ Don't overcomplicate things.
 llm_strategy = ChatOpenAI(model="o4-mini")
 
 tools = [SshExecuteTool(conn)]
-llm_with_tools = ChatOpenAI(model="gpt-4.1", temperature=0).bind_tools(tools)
-
+llm_executor = ChatOpenAI(model="gpt-4.1", temperature=0)
 llm_summary = ChatOpenAI(model="gpt-4.1", temperature=0)
 llm_knowledge = ChatOpenAI(model="o4-mini")
 
@@ -116,7 +114,7 @@ async def main(conn:SSHConnection) -> None:
         if isinstance(result.action, Task):
             task = result.action
             console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
-            result, history = await executor_run(SCENARIO, task, knowledge, invalid_commands, llm_with_tools, tools, console, logger)
+            result, history = await executor_run(SCENARIO, task, knowledge, invalid_commands, llm_executor, tools, console, logger)
 
             with console.status("[bold green]llm-call: analyze response") as status:
                 # summarize the result and create the findings list

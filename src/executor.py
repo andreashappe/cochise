@@ -4,8 +4,8 @@ import pathlib
 
 from dataclasses import dataclass
 
-from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, PromptTemplate
-from langchain_core.messages import SystemMessage
+from langchain_core.prompts import PromptTemplate
+from langchain_core.messages import SystemMessage, HumanMessage
 
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeElapsedColumn
@@ -37,7 +37,7 @@ async def perform_tool_call(tool_call, tool):
         'result': tool_msg.content
     }
 
-async def executor_run(SCENARIO, task: Task, knowledge, invalid_commands, llm2_with_tools, tools, console, logger):
+async def executor_run(SCENARIO, task: Task, knowledge, invalid_commands, llm, tools, console, logger):
 
     # create a string -> tool mapping
     mapping = {}
@@ -47,26 +47,24 @@ async def executor_run(SCENARIO, task: Task, knowledge, invalid_commands, llm2_w
     # tool_call history
     history = []
 
+    # prepare tool llm
+    llm2_with_tools = llm.bind_tools(tools)
+
     # how many rounds will we do?
     MAX_ROUNDS: int = 10
 
-    text = PROMPT.invoke(
-            {'task': task,
+    text = PROMPT.invoke({
+                'task': task,
                 'max': str(MAX_ROUNDS-1),
                 'knowledge': knowledge,
                 'invalid_commands': invalid_commands,
             }).text
     
-    # the initial prompt
-    chat_template = ChatPromptTemplate.from_messages(
-        [
-            SystemMessage(content=SCENARIO),
-            HumanMessagePromptTemplate.from_template(text)
-        ]
-    )
-
     # our message history
-    messages = chat_template.format_messages(task=task, max=(MAX_ROUNDS-1))
+    messages = [
+        SystemMessage(content=SCENARIO),
+        HumanMessage(content=text)
+    ]
 
     # try to solve our sub-task
     round = 1
@@ -122,5 +120,26 @@ async def executor_run(SCENARIO, task: Task, knowledge, invalid_commands, llm2_w
             summary = ai_msg.content
             break
         round = round + 1
+
+
+    # this happens if we run out of rounds
+    if summary == None:
+        assert(round >= MAX_ROUNDS)
+
+        # try to get a list of findings (disabled for now)
+        messages.append(HumanMessage(content="Go through the commands and their outputs and create a technical summary."))
+
+        tik = datetime.datetime.now()
+        summary = llm.invoke(messages)
+        tok = datetime.datetime.now()
+
+        messages.append(summary)
+        logger.write_llm_call('executor_summary_missing', prompt='',
+                              result=summary.content,
+                              costs=summary.response_metadata,
+                              duration=(tok-tik).total_seconds())
+
+        summary = summary.content
+        console.print(Panel(summary, title="Ended without Summary!"))
 
     return summary, history
