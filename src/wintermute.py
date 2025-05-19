@@ -17,7 +17,6 @@ console = Console()
 # setup configuration from environment variables
 load_dotenv()
 get_or_fail("OPENAI_API_KEY") # langgraph will use this env variable itself
-conn = SSHConnection(host='127.0.0.1', port=5011, username='lowpriv', password='trustno1', timeout=90)
 
 logger = Logger()
 logger.write_line("starting testrun")
@@ -44,7 +43,17 @@ async def main(conn:SSHConnection) -> None:
 
     console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
     result, messages, history = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger, invalid_commands, MAX_ROUNDS=100)
-    console.print(Panel(result, title='Result'))
+    if result != None:
+        console.print(Panel(result, title='Result'))
+    else:
+        console.print(Panel("No result was generated", title='Result'))
 
-asyncio.run(main(conn))
+async def benchmark() -> None:
+    for i in range(13):
+        port = 5001 + i
+        print(f"Running benchmark on port {port}")
+        conn = SSHConnection(host='127.0.0.1', port=port, username='lowpriv', password='trustno1', timeout=90)
+        await main(conn)
+
+asyncio.run(benchmark())
  
