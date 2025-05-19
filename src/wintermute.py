@@ -2,6 +2,8 @@ import asyncio
 
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
+from langchain_ollama.chat_models import ChatOllama
+from langchain_community.chat_models import ChatDeepInfra
 from common import Task, get_or_fail
 from executor import executor_run
 from kalissh import SshExecuteTool, SSHConnection
@@ -17,6 +19,7 @@ console = Console()
 # setup configuration from environment variables
 load_dotenv()
 get_or_fail("OPENAI_API_KEY") # langgraph will use this env variable itself
+get_or_fail("DEEPINFRA_API_TOKEN")
 
 logger = Logger()
 logger.write_line("starting testrun")
@@ -33,7 +36,10 @@ async def main(conn:SSHConnection) -> None:
     knowledge = ''
     invalid_commands = []
     tools = [SshExecuteTool(conn)]
-    llm_with_tools = ChatOpenAI(model="gpt-4.1", temperature=0).bind_tools(tools)
+    # llm_with_tools = ChatOpenAI(model="gpt-4.1", temperature=0).bind_tools(tools)
+    #llm_with_tools = ChatOllama(model="qwen3:latest", temperature=0).bind_tools(tools)
+    llm_with_tools = ChatDeepInfra(model='deepseek-ai/DeepSeek-V3-0324').bind_tools(tools)
+
 
     # TODO: add (optional) hint to the task context
     
