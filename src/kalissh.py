@@ -21,7 +21,7 @@ class SSHConnection:
     _conn: SSHClientConnection = None
 
     async def connect(self):
-        self._conn = await asyncssh.connect(self.host, port=self.port, username=self.username, password=self.password)
+        self._conn = await asyncssh.connect(self.host, port=self.port, username=self.username, password=self.password, known_hosts=None)
 
     async def run(self, cmd) -> SSHCompletedProcess:
         if self._conn is None:
