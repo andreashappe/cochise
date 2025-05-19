@@ -6,7 +6,8 @@ from langchain_ollama.chat_models import ChatOllama
 from langchain_community.chat_models import ChatDeepInfra
 from common import Task, get_or_fail
 from executor import executor_run
-from kalissh import SshExecuteTool, SSHConnection
+#from kalissh import SshExecuteTool, SSHConnection
+from fabric_ssh import SshExecuteTool, SSHConnection
 
 from rich.console import Console
 from rich.panel import Panel
