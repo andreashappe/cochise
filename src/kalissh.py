@@ -16,17 +16,18 @@ class SSHConnection:
     username: str = 'changeme'
     password: str = 'changeme'
     port: int = 22
+    timeout: int = 600
 
     _conn: SSHClientConnection = None
 
     async def connect(self):
         self._conn = await asyncssh.connect(self.host, port=self.port, username=self.username, password=self.password)
 
-    async def run(self, cmd, timeout=600) -> SSHCompletedProcess:
+    async def run(self, cmd) -> SSHCompletedProcess:
         if self._conn is None:
             raise Exception("SSH Connection not established")
 
-        return await self._conn.run(cmd, timeout=timeout, stderr=asyncssh.STDOUT)
+        return await self._conn.run(cmd, timeout=self.timeout, stderr=asyncssh.STDOUT)
 
 class SshExecuteInput(BaseModel):
     command: str= Field(description="the command to execute")
