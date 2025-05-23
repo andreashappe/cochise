@@ -78,9 +78,8 @@ def analyze_file(filename):
             if first_timestamp is None:
                 first_timestamp = ts
             last_timestamp = ts
-
-            if j['event'] == 'strategy_update':
-                strat_updates += 1
+            
+            if 'costs' in j:
                 if 'model_name' in j['costs']:
                     model = j['costs']['model_name']
                     if not model in models:
@@ -88,6 +87,8 @@ def analyze_file(filename):
                 else:
                     models = ['broken-run']
 
+            if j['event'] == 'strategy_update':
+                strat_updates += 1
             if j['event'] == 'strategy_next_task':
                 exec_counter = 0
 
