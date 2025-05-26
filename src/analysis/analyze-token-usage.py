@@ -8,6 +8,35 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
+from visitor import JSONLogWalker
+
+class TokenUsageVisitor:
+    def __init__(self):
+        self.results = {}
+
+    def __call__(self, j):
+        if 'costs' in j:
+            event = j['event']
+            if event in self.results:
+                assert self.results[event]['model_name'] == j['costs']['model_name']
+                self.results[event]['duration'] += j['duration']
+                self.results[event]['total'] += j['costs']['token_usage']['total_tokens']
+                self.results[event]['prompt'] += j['costs']['token_usage']['prompt_tokens']
+                self.results[event]['completions'] += j['costs']['token_usage']['completion_tokens']
+                self.results[event]['reasoning'] += j['costs']['token_usage']['completion_tokens_details']['reasoning_tokens']
+                self.results[event]['cached'] += j['costs']['token_usage']['prompt_tokens_details']['cached_tokens']
+            else:
+                self.results[event] = {
+                    'duration': j['duration'],
+                    'model_name': j['costs']['model_name'],
+                    'event': event,
+                    'total': j['costs']['token_usage']['total_tokens'],
+                    'prompt': j['costs']['token_usage']['prompt_tokens'],
+                    'completions': j['costs']['token_usage']['completion_tokens'],
+                    'reasoning': j['costs']['token_usage']['completion_tokens_details']['reasoning_tokens'],
+                    'cached': j['costs']['token_usage']['prompt_tokens_details']['cached_tokens'],
+                }
+
 def analyzse_file(filename):
 
     results = {}
