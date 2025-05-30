@@ -5,12 +5,7 @@ from dataclasses import dataclass, field
 from dateutil.parser import parse
 from pathlib import Path
 from statistics import mean, pstdev
-from typing import List, Set
-
-# remove this after conversion
-from rich.console import Console
-from rich.table import Table
-from dateutil.parser import parse
+from typing import Dict, List, Set
 
 @dataclass
 class StrategyRound:
@@ -20,6 +15,16 @@ class StrategyRound:
     tool_calls: int = 0
 
 @dataclass
+class LLMAccounting:
+    model: str = None
+    duration: float = 0
+    total_tokens: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    reasoning_tokens: int = 0
+    cached_tokens: int = 0 
+
+@dataclass
 class Run:
     filename: str = None
     first_timestamp: str = None
@@ -27,6 +32,7 @@ class Run:
     duration: float = 0
     models: Set[str] = field(default_factory=set)
     rounds: List[StrategyRound] = field(default_factory=list)
+    tokens: Dict[str, LLMAccounting] = field(default_factory=dict)
 
     def models_str(self) -> str:
         """Return a string representation of the models used in the run."""
@@ -35,6 +41,36 @@ class Run:
     def duration_str(self) -> str:
         return str(round(float(self.duration), 2))
 
+
+def add_token_usage_metadata(acc, j):
+    assert(acc.model == j['costs']['model_name'])
+
+    acc.duration += j['duration']
+    acc.total_tokens += j['costs']['usage_metadata']['total_tokens']
+    acc.prompt_tokens += j['costs']['usage_metadata']['input_tokens']
+    acc.completion_tokens += j['costs']['usage_metadata']['output_tokens']
+    acc.reasoning_tokens += 0
+    acc.cached_tokens += 0
+
+    return acc
+
+def add_token_usage(acc, j):
+    assert(acc.model == j['costs']['model_name'])
+
+    if j['costs']['token_usage']['completion_tokens_details'] != None and 'reasoning' in j['costs']['token_usage']['completion_tokens_details']:
+        reasoning_tokens = j['costs']['token_usage']['completion_tokens_details']['reasoning_tokens']
+    else:
+        reasoning_tokens = 0
+    
+    acc.duration += j['duration']
+    acc.total_tokens += j['costs']['token_usage']['total_tokens']
+    acc.prompt_tokens += j['costs']['token_usage']['prompt_tokens']
+    acc.completion_tokens += j['costs']['token_usage']['completion_tokens']
+    acc.reasoning_tokens += reasoning_tokens
+    acc.cached_tokens += j['costs']['token_usage']['prompt_tokens_details']['cached_tokens']
+
+    return acc
+
 def traverse_file(file):
 
     current_strategy_round = None
@@ -42,6 +78,7 @@ def traverse_file(file):
 
     for line in file:
         j = json.loads(line)
+        event = j['event']
 
         # extract common data from event
         timestamp = parse(j["timestamp"])
@@ -60,7 +97,15 @@ def traverse_file(file):
                 model = 'unknown-model'
             run.models.add(model)
 
-        match j['event']:
+            acc = run.tokens.get(event, LLMAccounting(model=model))
+            if 'token_usage' in j['costs']:
+                add_token_usage(acc, j)
+            elif 'usage_metadata' in j['costs']:
+                # if we don't have token usage, we can still get some information from here
+                add_token_usage_metadata(acc, j)
+            run.tokens[event] = acc
+
+        match event:
             case 'strategy_update':
                 if not current_strategy_round is None:
                     run.rounds.append(current_strategy_round)
@@ -97,53 +142,3 @@ def my_mean(data: List[int]) -> float:
         return 0.0
     else:
         return mean(data)
-
-if __name__=='__main__':
-
-    console = Console()
-
-    parser=argparse.ArgumentParser()
-    parser.add_argument('input', type=argparse.FileType('r'), nargs='+', help='input file to analyze')
-    args = parser.parse_args()
-
-    table = Table(title=f"Run Information")
-
-    table.add_column("Filename", justify="right", style="cyan", no_wrap=True)
-    table.add_column("Model", style="magenta")
-    table.add_column("Duration", justify="right", style="green")
-    table.add_column("Rounds", justify="right", style="green")
-    table.add_column("Mean Executor-Calls/Round", justify="right", style="green")
-    table.add_column("Dev Executor-Calls/Round", justify="right", style="green")
-    table.add_column("Mean Commands/Round", justify="right", style="green")
-    table.add_column("Dev Commands/Round", justify="right", style="green")
-
-    valid = 0
-    invalid = 0
-
-    for i in args.input:
-        result = traverse_file(i)
-
-        if result.duration > 600 and 'unknown-model' not in result.models and len(result.rounds) > 0:
-
-            executor_calls = [r.executor_llm_calls for r in result.rounds]
-            tool_calls = [r.tool_calls for r in result.rounds]
-
-            table.add_row(
-                result.filename,
-                result.models_str(),
-                result.duration_str(),
-                str(len(result.rounds)),
-                str(round(my_mean(executor_calls),2)),
-                str(round(my_std_dev(executor_calls),2)),
-                str(round(my_mean(tool_calls), 2)),
-                str(round(my_std_dev(tool_calls), 2))
-            )
-            valid += 1
-        else:
-            print(f"- {result.filename} has no valid models or strategy rounds")
-            invalid += 1
-
-    console = Console() 
-    console.print(table)
-
-    print(f"Valid runs: {valid} Invalid runs: {invalid}")
