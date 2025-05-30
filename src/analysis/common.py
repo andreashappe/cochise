@@ -43,31 +43,48 @@ class Run:
 
 
 def add_token_usage_metadata(acc, j):
+    if 'model_name' not in j['costs']:
+        return
+    
     assert(acc.model == j['costs']['model_name'])
 
     acc.duration += j['duration']
-    acc.total_tokens += j['costs']['usage_metadata']['total_tokens']
-    acc.prompt_tokens += j['costs']['usage_metadata']['input_tokens']
-    acc.completion_tokens += j['costs']['usage_metadata']['output_tokens']
-    acc.reasoning_tokens += 0
-    acc.cached_tokens += 0
+    print(str(j['costs']['usage_metadata']))
+    if 'total_token_count' in j['costs']['usage_metadata']:
+        acc.total_tokens += j['costs']['usage_metadata']['total_token_count']
+        acc.prompt_tokens += j['costs']['usage_metadata']['prompt_token_count']
+        acc.completion_tokens += j['costs']['usage_metadata']['candidates_token_count']
+        acc.reasoning_tokens += 0
+        acc.cached_tokens += j['costs']['usage_metadata']['cached_content_token_count']
+    else:
+        acc.total_tokens += j['costs']['usage_metadata']['total_tokens']
+        acc.prompt_tokens += j['costs']['usage_metadata']['input_tokens']
+        acc.completion_tokens += j['costs']['usage_metadata']['output_tokens']
+        acc.reasoning_tokens += j['costs']['usage_metadata']['output_token_details']['reasoning'] if 'output_token_details' in j['costs']['usage_metadata'] else 0
+        acc.cached_tokens += j['costs']['usage_metadata']['input_token_details']['cache_read'] if 'input_token_details' in j['costs']['usage_metadata'] else 0
+
 
     return acc
 
 def add_token_usage(acc, j):
+    if 'model_name' not in j['costs']:
+        return
+     
     assert(acc.model == j['costs']['model_name'])
 
-    if j['costs']['token_usage']['completion_tokens_details'] != None and 'reasoning' in j['costs']['token_usage']['completion_tokens_details']:
+    print(str(j['costs']['token_usage']))
+    if 'completion_token_details' in j['costs']['token_usage'] and j['costs']['token_usage']['completion_tokens_details'] != None and 'reasoning' in j['costs']['token_usage']['completion_tokens_details']:
         reasoning_tokens = j['costs']['token_usage']['completion_tokens_details']['reasoning_tokens']
     else:
         reasoning_tokens = 0
-    
+
+    print(str(j['costs']['token_usage'])) 
     acc.duration += j['duration']
     acc.total_tokens += j['costs']['token_usage']['total_tokens']
     acc.prompt_tokens += j['costs']['token_usage']['prompt_tokens']
     acc.completion_tokens += j['costs']['token_usage']['completion_tokens']
     acc.reasoning_tokens += reasoning_tokens
-    acc.cached_tokens += j['costs']['token_usage']['prompt_tokens_details']['cached_tokens']
+    acc.cached_tokens += j['costs']['token_usage']['prompt_tokens_details']['cached_tokens'] if 'prompt_tokens_details' in j['costs']['token_usage'] and j['costs']['token_usage']['prompt_tokens_details'] != None else 0
 
     return acc
 
@@ -119,6 +136,9 @@ def traverse_file(file):
                 # this means the executor finished without producing a result
                 current_strategy_round.executor_llm_calls += 1
             case 'executor_next_cmds':
+                if current_strategy_round is None:
+                    print("Warning: executor_next_cmds without a strategy update, wintermute?")
+                    current_strategy_round = StrategyRound(timestamp=timestamp)
                 # executor issued a new round of command(s)
                 current_strategy_round.executor_llm_calls += 1
                 current_strategy_round.executor_rounds += 1
