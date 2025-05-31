@@ -153,34 +153,39 @@ def analysis_token_usage(console, input_files):
 
     return tables
 
+analysis_functions = {
+        'index-rounds': analysis_run_stats,
+        'index-rounds-and-tokens': analysis_run_overview,
+        'show-tokens': analysis_token_usage
+}
+
 if __name__=='__main__':
 
     console = Console()
 
     parser=argparse.ArgumentParser()
-    parser.add_argument('analysis', choices=['index-rounds', 'index-rounds-and-tokens', 'show-tokens'], help='type of analysis to perform')
+    parser.add_argument('analysis', choices=analysis_functions.keys(), help='type of analysis to perform')
     parser.add_argument('input', type=argparse.FileType('r'), nargs='+', help='input file to analyze')
+    parser.add_argument('-l', '--latex', action='store_true')
     args = parser.parse_args()
 
     console = Console() 
     results = []
 
-    match args.analysis:
-        case 'index-rounds':
-            results = analysis_run_stats(console, args.input)
-        case 'show-tokens':
-            results = analysis_token_usage(console, args.input)
-        case 'index-rounds-and-tokens':
-            results = analysis_run_overview(console, args.input)
-        case _:
-            print(f"Unknown analysis type: {args.analysis}")
-            exit(1)
+    if args.analysis in analysis_functions.keys():
+        results = analysis_functions[args.analysis](console, args.input)
+    else:
+        console.print(f"Unknown analysis type: {args.analysis}")
+        exit(1)
 
-    for table in results:
-        t = Table(title=table.title)
-        for h in table.headers:
-            t.add_column(h)
-        for r in table.rows:
-            t.add_row(*r)
-        console.print(t)
+    if args.latex == True:
+        print("now doing latex output...")
+    else:
+        for table in results:
+            t = Table(title=table.title)
+            for h in table.headers:
+                t.add_column(h)
+            for r in table.rows:
+                t.add_row(*r)
+            console.print(t)
 
