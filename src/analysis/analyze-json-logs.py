@@ -24,7 +24,7 @@ def calc_costs(model, input_tokens, output_tokens, reasoning_tokens, cached_toke
             print(f"Unknown model {model} for cost calculation")
             return 0.0
 
-def analysis_run_overview(console, input_files) -> List[OutputTable]:
+def analysis_run_overview(console, input_files, filter_result) -> List[OutputTable]:
     valid = 0
     invalid = 0
     rows : List[List[str]] = []
@@ -32,7 +32,7 @@ def analysis_run_overview(console, input_files) -> List[OutputTable]:
     for i in args.input:
         result = traverse_file(i)
 
-        if result.duration > 60*60*1.5 and 'unknown-model' not in result.models and len(result.rounds) > 0:
+        if filter_result(result) and 'unknown-model' not in result.models and len(result.rounds) > 0:
 
             executor_calls = [r.executor_llm_calls for r in result.rounds]
             tool_calls = [r.tool_calls for r in result.rounds]
@@ -98,7 +98,7 @@ def analysis_run_stats(console, input_files):
     for i in args.input:
         result = traverse_file(i)
 
-        if result.duration > 600 and 'unknown-model' not in result.models and len(result.rounds) > 0:
+        if filter_result(result) and 'unknown-model' not in result.models and len(result.rounds) > 0:
 
             executor_calls = [r.executor_llm_calls for r in result.rounds]
             tool_calls = [r.tool_calls for r in result.rounds]
@@ -133,23 +133,26 @@ def analysis_token_usage(console, input_files):
         results = traverse_file(i)
         rows : List[List[str]] = []
 
-        for event ,acc in results.tokens.items():
-            rows.append([
-                event,
-                acc.model,
-                str(acc.total_tokens),
-                str(acc.prompt_tokens),
-                str(acc.completion_tokens),
-                str(acc.reasoning_tokens),
-                str(acc.cached_tokens),
-                str(round(acc.duration, 2))
-            ])
+        if filter_result(results):
+            for event ,acc in results.tokens.items():
+                rows.append([
+                    event,
+                    acc.model,
+                    str(acc.total_tokens),
+                    str(acc.prompt_tokens),
+                    str(acc.completion_tokens),
+                    str(acc.reasoning_tokens),
+                    str(acc.cached_tokens),
+                    str(round(acc.duration, 2))
+                ])
 
-        tables.append(OutputTable(
-            title=f"Run Information: {results.filename}",
-            headers=["Prompt", "Model", "Total Tokens", "Prompt Tokens", "Completions Tokens", "Reasoning Tokens", "Cached Tokens", "Duration"],
-            rows=rows
-        ))
+            tables.append(OutputTable(
+                title=f"Run Information: {results.filename}",
+                headers=["Prompt", "Model", "Total Tokens", "Prompt Tokens", "Completions Tokens", "Reasoning Tokens", "Cached Tokens", "Duration"],
+                rows=rows
+            ))
+        else:
+            print(f"{results.filename} duration <= minimum-duration")
 
     return tables
 
@@ -166,14 +169,22 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('analysis', choices=analysis_functions.keys(), help='type of analysis to perform')
     parser.add_argument('input', type=argparse.FileType('r'), nargs='+', help='input file to analyze')
-    parser.add_argument('-l', '--latex', action='store_true')
+    parser.add_argument('--latex', action='store_true')
+    parser.add_argument('--duration-min', default=600, type=int)
+    parser.add_argument('--model-eq', default=None, type=str)
     args = parser.parse_args()
+
+    def filter_result(result):
+        if args.model_eq != None:
+            if ','.join(sorted(result.models)) != args.model_eq:
+                return False
+        return result.duration >= args.duration_min
 
     console = Console() 
     results = []
 
     if args.analysis in analysis_functions.keys():
-        results = analysis_functions[args.analysis](console, args.input)
+        results = analysis_functions[args.analysis](console, args.input, filter_result)
     else:
         console.print(f"Unknown analysis type: {args.analysis}")
         exit(1)
