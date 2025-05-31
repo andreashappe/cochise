@@ -32,7 +32,7 @@ def analysis_run_overview(console, input_files, filter_result) -> List[OutputTab
     for i in args.input:
         result = traverse_file(i)
 
-        if filter_result(result) and 'unknown-model' not in result.models and len(result.rounds) > 0:
+        if filter_result(result):
 
             executor_calls = [r.executor_llm_calls for r in result.rounds]
             tool_calls = [r.tool_calls for r in result.rounds]
@@ -67,10 +67,8 @@ def analysis_run_overview(console, input_files, filter_result) -> List[OutputTab
                 result.models_str(),
                 result.duration_str(),
                 str(len(result.rounds)),
-                str(round(my_mean(executor_calls),2)),
-                str(round(my_std_dev(executor_calls),2)),
-                str(round(my_mean(tool_calls), 2)),
-                str(round(my_std_dev(tool_calls), 2)),
+                f"{round(my_mean(executor_calls),2)} +/- {round(my_std_dev(executor_calls),2)}",
+                f"{round(my_mean(tool_calls), 2)} +/- {round(my_std_dev(tool_calls), 2)}",
                 str(round(planner_input / 1000, 2)),  # Convert to kTokens
                 str(round(planner_output / 1000, 2)),  # Convert to kTokens
                 str(round(executor_input / 1000, 2)),  # Convert to kTokens
@@ -85,7 +83,7 @@ def analysis_run_overview(console, input_files, filter_result) -> List[OutputTab
     print(f"Valid runs: {valid} Invalid runs: {invalid}") 
     return [OutputTable(
         title="Run Information",
-        headers = ["Filename", "Model", "Duration", "Rounds", "Mean Executor-Calls/Round", "Dev Executor-Calls/Round", "Mean Commands/Round", "Dev Commands/Round", "Planner Input", "Planner Output", "Exeuctor Input", "Executor Output", "Est. Cost"],
+        headers = ["Filename", "Model", "Duration", "Rounds", "Executor-Calls/Round (Mean/Dev)", "Commands/Round (Mean/Dev)", "Planner Input", "Planner Output", "Exeuctor Input", "Executor Output", "Est. Cost"],
         rows = rows
     )]
 
@@ -98,7 +96,7 @@ def analysis_run_stats(console, input_files):
     for i in args.input:
         result = traverse_file(i)
 
-        if filter_result(result) and 'unknown-model' not in result.models and len(result.rounds) > 0:
+        if filter_result(result):
 
             executor_calls = [r.executor_llm_calls for r in result.rounds]
             tool_calls = [r.tool_calls for r in result.rounds]
