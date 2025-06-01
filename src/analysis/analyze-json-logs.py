@@ -20,6 +20,10 @@ def calc_costs(model, input_tokens, output_tokens, reasoning_tokens, cached_toke
             return input_tokens/1_000_000*15 - cached_tokens/1_000_000*7.5 + output_tokens/1_000_000*60
         case 'gpt-4o-2024-08-06':
             return input_tokens/1_000_000*2.5 - cached_tokens/1_000_000*1.25 + output_tokens/1_000_000*10
+        case 'deepseek-chat':
+            return input_tokens/1_000_000*0.27 - cached_tokens/1_000_000*0.2 + output_tokens/1_000_000*1.1
+        case 'models/gemini-2.5-flash-preview-04-17':
+            return input_tokens/1_000_000*0.15 - cached_tokens/1_000_000*(0.15-0.0375) + output_tokens/1_000_000*0.6 + reasoning_tokens/1_000_000*3.5
         case _:
             print(f"Unknown model {model} for cost calculation")
             return 0.0
@@ -87,7 +91,7 @@ def analysis_run_overview(console, input_files, filter_result) -> List[OutputTab
         rows = rows
     )]
 
-def analysis_run_stats(console, input_files):
+def analysis_run_stats(console, input_files, filter_result):
     valid = 0
     invalid = 0
 
@@ -170,11 +174,15 @@ if __name__=='__main__':
     parser.add_argument('--latex', action='store_true')
     parser.add_argument('--duration-min', default=600, type=int)
     parser.add_argument('--model-eq', default=None, type=str)
+    parser.add_argument('--model-substr', default=None, type=str)
     args = parser.parse_args()
 
     def filter_result(result):
         if args.model_eq != None:
             if ','.join(sorted(result.models)) != args.model_eq:
+                return False
+        if args.model_substr != None:
+            if args.model_substr not in (','.join(sorted(result.models))):
                 return False
         return result.duration >= args.duration_min
 
@@ -189,6 +197,16 @@ if __name__=='__main__':
 
     if args.latex == True:
         print("now doing latex output...")
+
+        for table in results:
+            print("\\begin{tabular}{c%s}" % ('r'*len(table.headers)))
+            print("\\toprule")
+            print(" & ".join(map(lambda i: "\\textbf{%s}" % (i), table.headers)), "\\\\")
+            print("\\midrule")
+            for r in table.rows:
+                print( " & ".join(r), "\\\\\\hdashline")
+            print("\\bottomrule")
+            print("\\end{tabular}")
     else:
         for table in results:
             t = Table(title=table.title)

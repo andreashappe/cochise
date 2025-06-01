@@ -49,7 +49,7 @@ def add_token_usage_metadata(acc, j):
     assert(acc.model == j['costs']['model_name'])
 
     acc.duration += j['duration']
-    print(str(j['costs']['usage_metadata']))
+    #print(str(j['costs']['usage_metadata']))
     if 'total_token_count' in j['costs']['usage_metadata']:
         acc.total_tokens += j['costs']['usage_metadata']['total_token_count']
         acc.prompt_tokens += j['costs']['usage_metadata']['prompt_token_count']
@@ -72,13 +72,13 @@ def add_token_usage(acc, j):
      
     assert(acc.model == j['costs']['model_name'])
 
-    print(str(j['costs']['token_usage']))
+    #print(str(j['costs']['token_usage']))
     if 'completion_token_details' in j['costs']['token_usage'] and j['costs']['token_usage']['completion_tokens_details'] != None and 'reasoning' in j['costs']['token_usage']['completion_tokens_details']:
         reasoning_tokens = j['costs']['token_usage']['completion_tokens_details']['reasoning_tokens']
     else:
         reasoning_tokens = 0
 
-    print(str(j['costs']['token_usage'])) 
+    #print(str(j['costs']['token_usage'])) 
     acc.duration += j['duration']
     acc.total_tokens += j['costs']['token_usage']['total_tokens']
     acc.prompt_tokens += j['costs']['token_usage']['prompt_tokens']
@@ -128,6 +128,7 @@ def traverse_file(file):
                     run.rounds.append(current_strategy_round)
                 current_strategy_round = StrategyRound(timestamp=timestamp)
             case 'strategy_next_task':
+                current_strategy_round = StrategyRound(timestamp=timestamp)
                 assert current_strategy_round is not None, "Strategy next task without a strategy update"
                 assert current_strategy_round.executor_llm_calls == 0, "New Round should have no executor calls"
                 assert current_strategy_round.tool_calls == 0, "New Round should have no tool calls"
