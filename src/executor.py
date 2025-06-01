@@ -37,7 +37,7 @@ async def perform_tool_call(tool_call, tool):
         'result': tool_msg.content
     }
 
-async def executor_run(SCENARIO, task: Task, findings, llm2_with_tools, tools, console, logger, invalid_commands):
+async def executor_run(SCENARIO, task: Task, findings, llm2_with_tools, tools, console, logger, invalid_commands, MAX_ROUNDS:int=10):
 
     # create a string -> tool mapping
     mapping = {}
@@ -46,9 +46,6 @@ async def executor_run(SCENARIO, task: Task, findings, llm2_with_tools, tools, c
 
     # tool_call history
     history = []
-
-    # how many rounds will we do?
-    MAX_ROUNDS: int = 10
 
     text = PROMPT.invoke(
             {'task': task,
@@ -66,8 +63,6 @@ async def executor_run(SCENARIO, task: Task, findings, llm2_with_tools, tools, c
     )
 
     # our message history
-    print(str(task))
-    print(str(MAX_ROUNDS))
     messages = chat_template.format_messages(task=task, max=(MAX_ROUNDS-1))
 
     # try to solve our sub-task
