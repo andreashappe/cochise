@@ -8,6 +8,12 @@ from statistics import mean, pstdev
 from typing import Dict, List, Set
 
 @dataclass
+class OutputTable:
+    title: str
+    headers: List[str]
+    rows: List[List[str]]
+
+@dataclass
 class StrategyRound:
     timestamp: str
     executor_rounds: int = 0
