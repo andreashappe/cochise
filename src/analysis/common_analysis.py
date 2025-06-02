@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass, field
 from dateutil.parser import parse
 from pathlib import Path
-from statistics import mean, pstdev
+from statistics import mean, stdev
 from typing import Dict, List, Set
 
 @dataclass
@@ -152,6 +152,10 @@ def traverse_file(file):
             case 'executor_cmd':
                 # tool-call was performed (actually finished)
                 current_strategy_round.tool_calls += 1
+  
+    # add the final strategy round if we stopped during a run
+    if current_strategy_round not in run.rounds:
+        run.rounds.append(current_strategy_round)
     
     if run.last_timestamp is not None and run.first_timestamp is not None:
         run.duration = (run.last_timestamp - run.first_timestamp).total_seconds()
@@ -162,7 +166,7 @@ def my_std_dev(data: List[int]) -> float:
     if len(data) < 2:
         return 0.0
     else:
-        return pstdev(data)
+        return stdev(data)
 
 def my_mean(data: List[int]) -> float:
     if len(data) == 0:
