@@ -1,9 +1,12 @@
 import asyncio
+import asyncssh
+import logging
 
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_ollama.chat_models import ChatOllama
 from langchain_community.chat_models import ChatDeepInfra
+from langchain_google_genai import ChatGoogleGenerativeAI
 from common import Task, get_or_fail
 from executor import executor_run
 #from kalissh import SshExecuteTool, SSHConnection
@@ -16,6 +19,10 @@ from logger import Logger
 
 # setup logggin console for now
 console = Console()
+
+# setup logging for analysis of retrieved output
+#logging.basicConfig(level='DEBUG')
+#asyncssh.set_debug_level(2)
 
 # setup configuration from environment variables
 load_dotenv()
@@ -34,12 +41,19 @@ async def main(conn:SSHConnection) -> None:
 
     await conn.connect()
 
+
+
     knowledge = ''
     invalid_commands = []
     tools = [SshExecuteTool(conn)]
     # llm_with_tools = ChatOpenAI(model="gpt-4.1", temperature=0).bind_tools(tools)
     #llm_with_tools = ChatOllama(model="qwen3:latest", temperature=0).bind_tools(tools)
-    llm_with_tools = ChatDeepInfra(model='deepseek-ai/DeepSeek-V3-0324').bind_tools(tools)
+    #llm_with_tools = ChatDeepInfra(model='deepseek-ai/DeepSeek-V3-0324').bind_tools(tools)
+    llm_with_tools = ChatGoogleGenerativeAI(
+    model='gemini-2.5-flash-preview-05-20',
+    temperature=0.8,
+    max_tokens=None,
+    ).bind_tools(tools)
 
 
     # TODO: add (optional) hint to the task context
