@@ -2,7 +2,7 @@
 
 import argparse
 
-from common import traverse_file, my_mean, my_std_dev
+from common_analysis import traverse_file, my_mean, my_std_dev
 from dataclasses import dataclass, field
 from rich.console import Console
 from rich.table import Table
