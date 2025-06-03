@@ -14,6 +14,11 @@ analysis_functions = {
         'show-tokens': show_tokens,
 }
 
+def format_input(i):
+    if '+/-' in i:
+        return i.replace('+/-', '$\\pm$')
+    return i
+
 if __name__=='__main__':
 
     console = Console()
@@ -51,17 +56,22 @@ if __name__=='__main__':
         for table in results:
             print("\\begin{tabular}{c%s}" % ('r'*len(table.headers)))
             print("\\toprule")
-            print(" & ".join(map(lambda i: "\\textbf{%s}" % (i), table.headers)), "\\\\")
+            print(" & ".join(map(lambda i: "\\rot{\\textbf{%s}}" % (i), table.headers)), "\\\\")
             print("\\midrule")
             for r in table.rows:
-                print( " & ".join(r), "\\\\\\hdashline")
+                print( " & ".join(map(format_input, r)), "\\\\\\hdashline")
+            print("\\midrule")
+            print(" & ".join(map(lambda i: "\\textbf{%s}" % (i), map(format_input, table.footers))), "\\\\")
             print("\\bottomrule")
             print("\\end{tabular}")
     else:
         for table in results:
-            t = Table(title=table.title)
-            for h in table.headers:
-                t.add_column(h)
+            t = Table(title=table.title, show_header=True, show_footer=len(table.footers) > 0)
+            for i, h in enumerate(table.headers):
+                if i < len(table.footers):
+                    t.add_column(h, footer=table.footers[i])
+                else:
+                    t.add_column(h)
             for r in table.rows:
                 t.add_row(*r)
             console.print(t)

@@ -12,6 +12,7 @@ class OutputTable:
     title: str
     headers: List[str]
     rows: List[List[str]]
+    footers: List[str] = field(default_factory=list)
 
 @dataclass
 class StrategyRound:

@@ -22,6 +22,16 @@ def index_rounds_and_tokens(console:Console, input_files, filter_result) -> List
     invalid = 0
     rows : List[List[str]] = []
 
+    all_durations = []
+    all_rounds = []
+    all_executor_calls = []
+    all_commands = []
+    all_planner_input = []
+    all_planner_output = []
+    all_executor_input = []
+    all_executor_output = []
+    all_costs = []
+
     for i in input_files:
         result = traverse_file(i)
 
@@ -69,6 +79,16 @@ def index_rounds_and_tokens(console:Console, input_files, filter_result) -> List
                 str(round(cost, 2))  # Cost in USD
             ])
             valid += 1
+
+            all_durations.append(result.duration)
+            all_rounds.append(len(result.rounds))
+            all_executor_calls.extend(executor_calls)
+            all_commands.extend(tool_calls)
+            all_planner_input.append(planner_input/1000)
+            all_planner_output.append(planner_output/1000)
+            all_executor_input.append(executor_input/1000)
+            all_executor_output.append(executor_output/1000)
+            all_costs.append(cost)
         else:
             console.print(f"- {result.filename} has no valid models or strategy rounds")
             invalid += 1
@@ -77,5 +97,15 @@ def index_rounds_and_tokens(console:Console, input_files, filter_result) -> List
     return [OutputTable(
         title="Run Information",
         headers = ["Filename", "Model", "Duration", "Rounds", "Executor-Calls/Round (Mean/Dev)", "Commands/Round (Mean/Dev)", "Planner Input", "Planner Output", "Exeuctor Input", "Executor Output", "Est. Cost"],
+        footers = ["Average", "",
+                   str(round(my_mean(all_durations), 2)),
+                   str(round(my_mean(all_rounds), 2)),
+                    f"{round(my_mean(all_executor_calls),2)} +/- {round(my_std_dev(all_executor_calls),2)}",
+                    f"{round(my_mean(all_commands), 2)} +/- {round(my_std_dev(all_commands), 2)}",
+                    f"{round(my_mean(all_planner_input), 2)} +/- {round(my_std_dev(all_planner_input), 2)}",
+                    f"{round(my_mean(all_planner_output), 2)} +/- {round(my_std_dev(all_planner_output), 2)}",
+                    f"{round(my_mean(all_executor_input), 2)} +/- {round(my_std_dev(all_executor_input), 2)}",
+                    f"{round(my_mean(all_executor_output), 2)} +/- {round(my_std_dev(all_executor_output), 2)}",
+                    f"{round(my_mean(all_costs), 2)} +/- {round(my_std_dev(all_costs), 2)}"],
         rows = rows
     )]
