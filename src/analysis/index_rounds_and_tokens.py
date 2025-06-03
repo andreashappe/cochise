@@ -3,7 +3,7 @@ from typing import List
 
 from analysis.common_analysis import traverse_file, my_mean, my_std_dev, OutputTable
 
-def calc_costs(model, input_tokens, output_tokens, reasoning_tokens, cached_tokens):
+def calc_costs(model, input_tokens, output_tokens, reasoning_tokens, cached_tokens, duration):
     match model:
         case 'o1-2024-12-17':
             return input_tokens/1_000_000*15 - cached_tokens/1_000_000*7.5 + output_tokens/1_000_000*60
@@ -14,6 +14,8 @@ def calc_costs(model, input_tokens, output_tokens, reasoning_tokens, cached_toke
         case 'models/gemini-2.5-flash-preview-04-17':
             return input_tokens/1_000_000*0.15 - cached_tokens/1_000_000*(0.15-0.0375) + output_tokens/1_000_000*0.6 + reasoning_tokens/1_000_000*3.5
         case _:
+            if 'qwen' in model:
+                return duration / 3600 * 1.29
             print(f"Unknown model {model} for cost calculation")
             return 0.0
 
@@ -57,13 +59,13 @@ def index_rounds_and_tokens(console:Console, input_files, filter_result) -> List
                         planner_output += data.completion_tokens
                         planner_reasoning += data.reasoning_tokens
                         planner_cached += data.cached_tokens
-                        cost += calc_costs(data.model, data.prompt_tokens, data.completion_tokens, data.reasoning_tokens, data.cached_tokens)
+                        cost += calc_costs(data.model, data.prompt_tokens, data.completion_tokens, data.reasoning_tokens, data.cached_tokens, data.duration)
                     case _:
                         executor_input += data.prompt_tokens
                         executor_output += data.completion_tokens
                         executor_reasoning += data.reasoning_tokens
                         executor_cached += data.cached_tokens
-                        cost += calc_costs(data.model, data.prompt_tokens, data.completion_tokens, data.reasoning_tokens, data.cached_tokens)
+                        cost += calc_costs(data.model, data.prompt_tokens, data.completion_tokens, data.reasoning_tokens, data.cached_tokens, data.duration)
 
             rows.append([
                 result.filename,
