@@ -20,10 +20,9 @@ def analyze_replay(console, file, output_every_x_ptt=1):
 
         match j['event']:
             case 'strategy_update':
-                ptt += 1
-                if ptt >= output_every_x_ptt:
+                if ptt == 0:
                     console.print(Panel(result, title="Updated Plan", style='bright_green'))
-                    ptt = 0
+                ptt = (ptt + 1) % output_every_x_ptt
             case 'strategy_next_task':
                 next_task = result['next_step']
                 next_task_context = result['next_step_context']
