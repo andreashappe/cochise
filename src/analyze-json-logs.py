@@ -2,6 +2,7 @@
 
 import argparse
 
+from analysis.index_duration import index_duration
 from analysis.index_rounds_and_tokens import index_rounds_and_tokens
 from analysis.index_rounds import index_rounds
 from analysis.show_tokens import show_tokens
@@ -9,6 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 analysis_functions = {
+        'index-duration': index_duration,
         'index-rounds': index_rounds,
         'index-rounds-and-tokens': index_rounds_and_tokens,
         'show-tokens': show_tokens,
