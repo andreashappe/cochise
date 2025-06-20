@@ -2,7 +2,11 @@
 
 ***Autonomous Assumed Breach Penetration-Testing Active Directory Networks***
 
-The title is quite a handful, I know.. Let's start with some results. The following table is copied from [the initial paper](https://arxiv.org/pdf/2502.04227). It shows results of six hacking testruns within the [GOADv3](https://github.com/Orange-Cyberdefense/GOAD) testbed using OpenAI's O1 and GPT-4o where each testrun is stopped after running for two hours. The important columns are `Users` showing fully-compromised users, `Cost` showing the money spent for a two hour testrun and `Cost per User` showing the cost for compromising a single user ($18 on average). This was done using [the v1 version](https://github.com/andreashappe/cochise/releases/tag/v0.1), I am currently working on a newer version (see the `main` branch) that achieves simliar results using OpenAI's o4-mini together with gpt-4.1 to drop the costs down to less than a quarter of that.
+So basically, I use LLMs to hack Microsoft Active Directory networks.. what could possibly go wrong?
+
+This is a prototype that I wrote to evaluate the capabilities of LLMs for performing Assumed Breach penetration-testing against Active Directory networks. I am using the [GOAD](https://github.com/Orange-Cyberdefense/GOAD) testbed to provide my target environment, place a [Kali Linux](https://www.kali.org/) VM into the testbed, and then direct my Prototype `cochise` to hack it.
+
+Results using OpenAI's o1 or Google's Gemini-2.5-Flash have been impressive (or disturbing, depending whom you're asking). The LLMs are able to compromise users, escalate privileges, and even perform lateral movement within the network. More details [can be found in the paper](https://arxiv.org/pdf/2502.04227), but in short, o1 was able to fully-compromise most users  (shown in the following table in the `Results > Users` column) while costing around $11/hour. Gemini-2.5-flash was worse, but only costs around $2/hour. DeepSeek-V3 was not able to compromise many accounts (yet), but it's costs was around 0.1$/hour, so it might be worth waiting for it to improve.
 
 ![Results from my initial testruns](money-shot-v1.png)
 
@@ -19,6 +23,18 @@ You can find many screenshots of the tool in action [within this github repo](ht
       url={https://arxiv.org/abs/2502.04227}, 
 }
 ```
+
+## What's included in this prototype?
+
+| Tool | Description |
+| ---- | ----------- |
+| `src/cochise.py` | The multi-level heacking prototype including both high-level strategy-planning and low-level attack executor. |
+| `src/wintermute.py` | A stand-alone low-levle attack executor that can be used for simpler tests, e.g., performing single-host privilege-escalation attacks. |
+| `src/cochise-replay.py` | A replay tool that allows to replay (on the screen, not the operations) the actions of a previous run. It uses the json-based log files that are automatially stored for each test-run within `logs/` |
+| `src/analyze-json-logs.py` | A tool to analyze the json-based log files of one or multiple test-runs. I used it for high-level run- and cost-analysis when preparing the paper. Supports export of latex tables. |
+| `src/analyze-json-graphs.py` | A simple tool that generates graphs based upon logs (used for my paper). |
+
+While all the analysis and replay tools work out-of-the-box on the command line, you might need to alter `cochise.py` and `wintermute.py` to fit your environment or to adapt them for different scenarios that are not GOAD. This is on purpose, as I wanted to keep the code as simple as possible and do not want to provide ready-made tools for script-kiddies.
 
 ## How to Help?
 
