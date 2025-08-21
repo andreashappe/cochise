@@ -72,7 +72,7 @@ def executor_size(console, input_files):
     plt.xlabel('Executor Round')
     plt.xticks(range(0, 10, 1), range(0, 10, 1))
     plt.ylabel('Executor Input Size in Tokens')
-    plt.savefig('executor_input_size.png')
+    plt.savefig('executor_input_size.pdf', format='pdf')
     plt.clf()
 
     for model in models.keys():
@@ -94,7 +94,7 @@ def executor_size(console, input_files):
     plt.xlabel('Executor Round')
     plt.xticks(range(0, 10, 1), range(0, 10, 1))
     plt.ylabel('Cached Executor Input in Percent')
-    plt.savefig('executor_cached_input.png')
+    plt.savefig('executor_cached_input.pdf', format='pdf')
     plt.clf()
 
 
@@ -155,7 +155,7 @@ def ptt_size(console, input_files):
     plt.xlabel('Planner Round')
     plt.xticks(range(0, 100, 10), range(0, 100, 10))
     plt.ylabel('State/Pentest-Task-Tree (PTT) Size in Tokens')
-    plt.savefig('state_size.png')
+    plt.savefig('ptt_size.pdf', format='pdf')
     plt.clf()
 
     return None
@@ -218,7 +218,7 @@ def llm_performance(console, input_files):
     plt.xlabel('Total Token Count of Query (Sum of Prompt and Completion Tokens)')
     plt.ylabel('Query Round-Trip Time in Seconds')
     plt.legend()
-    plt.savefig('tokens_vs_duration.png')
+    plt.savefig('tokens_vs_duration.pdf', format='pdf')
     plt.clf()
 
 

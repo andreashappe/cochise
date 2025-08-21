@@ -22,7 +22,7 @@ def graph_time_spent_by_different_llms(output_file):
     #ax.set_title("Time spent in different ")
     ax.legend(loc="upper right")
 
-    plt.savefig(output_file)
+    plt.savefig(output_file, format='pdf')
 
 def overview_used_attack_vectors(output_file):
 
@@ -69,7 +69,7 @@ def overview_used_attack_vectors(output_file):
 
     #ax.set_title("Attack Vectors pursued by different LLMs in % of their respective runs")
     fig.tight_layout()
-    plt.savefig(output_file)
+    plt.savefig(output_file, format='pdf')
 
-graph_time_spent_by_different_llms('time_spent_areas.png')
-overview_used_attack_vectors('attack_vectors_overview.png')
+graph_time_spent_by_different_llms('time_spent_areas.pdf')
+overview_used_attack_vectors('attack_vectors_overview.pdf')

@@ -302,7 +302,7 @@ def tools_within_runs(cmds):
     plt.xlabel("Number of runs a tool was used within")
     plt.ylabel("Percentage of tools")
 
-    plt.savefig('tools_within_runs.png')
+    plt.savefig('tools_within_runs.pdf', format='pdf')
 
 
 tool_call_histogram(cmds)
