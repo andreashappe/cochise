@@ -10,17 +10,22 @@ Results using OpenAI's o1 or Google's Gemini-2.5-Flash have been impressive (or 
 
 ![Results from my initial testruns](money-shot-v1.png)
 
-You can find many screenshots of the tool in action [within this github repo](https://github.com/andreashappe/cochise/tree/main/examples/screenshots). There's also the initial [paper detailing the architecture, implementation and results](https://arxiv.org/pdf/2502.04227) on arxiv. I am always happy for citations:
+You can find many screenshots of the tool in action [within this github repo](https://github.com/andreashappe/cochise/tree/main/examples/screenshots). My research paper has been accepted to the [TOSEM journal](https://dl.acm.org/doi/10.1145/3766895), and of course I am always happy for citations:
 
 ```bibtex
-@misc{happe2025llmshackenterprisenetworks,
-      title={Can LLMs Hack Enterprise Networks? Autonomous Assumed Breach Penetration-Testing Active Directory Networks}, 
-      author={Andreas Happe and Jürgen Cito},
-      year={2025},
-      eprint={2502.04227},
-      archivePrefix={arXiv},
-      primaryClass={cs.CR},
-      url={https://arxiv.org/abs/2502.04227}, 
+@article{10.1145/3766895,
+author = {Happe, Andreas and Cito, J\"{u}rgen},
+title = {Can LLMs Hack Enterprise Networks? Autonomous Assumed Breach Penetration-Testing Active Directory Networks},
+year = {2025},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3766895},
+doi = {10.1145/3766895},
+note = {Just Accepted},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = sep,
+keywords = {Security Capability Evaluation, Large Language Models, Enterprise Networks}
 }
 ```
 
