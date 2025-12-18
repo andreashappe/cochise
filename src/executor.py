@@ -37,7 +37,7 @@ async def perform_tool_call(tool_call, tool):
         'result': tool_msg.content
     }
 
-async def executor_run(SCENARIO, task: Task, findings, llm2_with_tools, tools, console, logger, invalid_commands, MAX_ROUNDS:int=10):
+async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, console, logger, MAX_ROUNDS:int=10):
 
     # create a string -> tool mapping
     mapping = {}
@@ -50,8 +50,7 @@ async def executor_run(SCENARIO, task: Task, findings, llm2_with_tools, tools, c
     text = PROMPT.invoke(
             {'task': task,
                 'max': str(MAX_ROUNDS-1),
-                'findings': findings,
-                'invalid_commands': invalid_commands,
+                'knowledge': knowledge
             }).text
     
     # the initial prompt

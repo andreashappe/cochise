@@ -1,20 +1,17 @@
 import asyncio
-from typing import List
 
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from common import InvalidCommand, Task, get_or_fail
+from common import Task, get_or_fail
 from executor import executor_run
-from knowledge import update_knowledge
 from ptt import PlanTestTreeStrategy, PlanFinished, PlanResult
 from kalissh import get_ssh_connection_from_env, SshExecuteTool, SSHConnection
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.pretty import Pretty
 
 from logger import Logger
-from summarizers.text_history import summarize
+from summarizers.initial_analyzer import InitialAnalyzer
 
 # setup logggin console for now
 console = Console()
@@ -74,28 +71,18 @@ llm_strategy = ChatOpenAI(model="o4-mini")
 
 tools = [SshExecuteTool(conn)]
 llm_with_tools = ChatOpenAI(model="gpt-4.1", temperature=0).bind_tools(tools)
-
 llm_summary = ChatOpenAI(model="o4-mini")
 
-# re-use an old stored state? if not, set old_state to ''
-# old_state = Path('examples/states/spraying_into_sysvol.txt').read_text()
-old_state = None
-
-high_level_planner = PlanTestTreeStrategy(llm_strategy, SCENARIO, logger, plan = old_state)
+high_level_planner = PlanTestTreeStrategy(llm_strategy, SCENARIO, logger, plan = None)
 
 async def main(conn:SSHConnection) -> None:
-    analyzed_execution = None
     task: Task = None
     planning_result: PlanResult = None
 
-    # TODO: maybe add some knowledge here already?
     knowledge = ""
-    # TODO: maybe add some knowledge here already?
-    # invalid_commands: List[InvalidCommand] = []
-    invalid_commands = []
-
-    vulnerabilities = []
     summary = None
+
+    analyser = InitialAnalyzer(llm_summary, console, logger)
 
     # open SSH connection
     await conn.connect()
@@ -103,7 +90,7 @@ async def main(conn:SSHConnection) -> None:
     while not isinstance(planning_result, PlanFinished):
 
         with console.status("[bold green]llm-call: updating plan and selecting next task") as status:
-            high_level_planner.update_plan(task, summary, knowledge, vulnerabilities)
+            high_level_planner.update_plan(task, summary, knowledge)
             console.print(Panel(high_level_planner.get_plan().plan, title="Updated Plan"))
             result = high_level_planner.select_next_task(knowledge)
             planning_result = result.action
@@ -112,22 +99,10 @@ async def main(conn:SSHConnection) -> None:
 
             task = result.action
             console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
-            result, messages, history = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger, invalid_commands)
+            result, messages, history = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger)
 
             with console.status("[bold green]llm-call: analyze response") as status:
-                # summarize the result and create the findings list
-                analyzed_execution = summarize(console, llm_summary, logger, task, result, messages, history)
-
-            with console.status("[bold green]llm-call: update knowledge") as status:
-                knowledge = update_knowledge(console, llm_summary, logger, knowledge, analyzed_execution.gathered_knowledge)
-
-            console.print(Panel(Pretty(analyzed_execution), title='Analyzed Execution'))
-
-            vulnerabilities = analyzed_execution.vulnerabilities
-            summary = analyzed_execution.summary
-
-            #invalid_commands += analyzed_execution.invalid_commands
-            #console.print(Panel(Pretty(invalid_commands), title='Invalid Commands'))
+                summary, knowledge = analyser.analyze_executor(task, result, messages, history)
 
     logger.write_line(f"run-finished; result: {str(result)}")
     console.print(Panel(result, title="Problem solved!"))
