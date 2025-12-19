@@ -1,7 +1,7 @@
 import datetime
 import pathlib
 
-from common import AnalyzedExecution, Task
+from common import Task
 from logger import Logger
 from typing import Union, List
 from pydantic import BaseModel, Field
@@ -51,7 +51,36 @@ class PlanTestTreeStrategy:
         self.logger = logger
         self.plan = plan
 
-    def update_plan(self, last_task: Task, summary: str, knowledge: str, leads: List[str]) -> None:
+
+    def create_initial_plan(self) -> UpdatedPlan:
+        target_plan = ''
+
+        input = {
+            'user_input': self.scenario,
+            'plan': target_plan,
+            'last_task': None,
+            'summary': '',
+            'knowledge': '',
+        }
+
+        replanner = TEMPLATE_UPDATE | self.llm.with_structured_output(UpdatedPlan, include_raw=True)
+        tik = datetime.datetime.now()
+        result = replanner.invoke(input)
+        tok = datetime.datetime.now()
+
+        # output tokens
+        metadata=result['raw'].response_metadata
+        print(str(metadata))
+
+        self.logger.write_llm_call('strategy_update', 
+                                   TEMPLATE_UPDATE.invoke(input).text,
+                                   result['parsed'].plan,
+                                   result['raw'].response_metadata,
+                                   (tok-tik).total_seconds())
+        self.plan = result['parsed']
+
+
+    def update_plan(self, last_task: Task, summary: str, knowledge: str) -> None:
 
         if self.plan == None:
             target_plan = ''
@@ -64,7 +93,6 @@ class PlanTestTreeStrategy:
             'last_task': last_task,
             'summary': summary,
             'knowledge': knowledge,
-            'leads': leads
         }
 
         replanner = TEMPLATE_UPDATE | self.llm.with_structured_output(UpdatedPlan, include_raw=True)

@@ -92,7 +92,6 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
             # output a summary before we do the acutal tool calls
             result = "\n".join(list(map(lambda x: f"{x['name']}: {x['args']['command']}", ai_msg.tool_calls)))
             console.print(Panel(result, title="Tool Call(s)"))
-            logger.write_tool_calls(result)
 
             tasks = []
             display = {}

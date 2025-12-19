@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from common import Task, get_or_fail
 from executor import executor_run
-from ptt import PlanTestTreeStrategy, PlanFinished, PlanResult
+from ptt import PlanTestTreeStrategy, PlanResult
 from kalissh import get_ssh_connection_from_env, SshExecuteTool, SSHConnection
 
 from rich.console import Console
@@ -66,12 +66,14 @@ Tool-specific guidance:
     - it's `impacket-GetNPUsers` not `impacket-getNPUsers`
 """
 
-# create the graph
 llm_strategy = ChatOpenAI(model="o4-mini")
 
 tools = [SshExecuteTool(conn)]
 llm_with_tools = ChatOpenAI(model="gpt-4.1", temperature=0).bind_tools(tools)
 llm_summary = ChatOpenAI(model="o4-mini")
+
+# TODO: we could use a cached (auto-generated) plan here instead of
+# creating a new one every run
 
 high_level_planner = PlanTestTreeStrategy(llm_strategy, SCENARIO, logger, plan = None)
 
@@ -87,22 +89,27 @@ async def main(conn:SSHConnection) -> None:
     # open SSH connection
     await conn.connect()
 
-    while not isinstance(planning_result, PlanFinished):
+    # create an initial plan and select the first task 
+    with console.status("[bold green]llm-call: creating initial plan and selecting next task") as status:
+        high_level_planner.create_initial_plan()
+        console.print(Panel(high_level_planner.get_plan().plan, title="Updated Plan"))
+        result = high_level_planner.select_next_task(knowledge)
 
+    # work and update the plan until we have no tasks left, i.e., the problem is solved
+    while isinstance(result.action, Task):
+
+        task = result.action
+        console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
+        result, messages, history = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger)
+
+        with console.status("[bold green]llm-call: analyze response") as status:
+            summary, knowledge = analyser.analyze_executor(task, result, messages, history)
+
+        # TODO: implement the improved agentic analyzer
         with console.status("[bold green]llm-call: updating plan and selecting next task") as status:
             high_level_planner.update_plan(task, summary, knowledge)
             console.print(Panel(high_level_planner.get_plan().plan, title="Updated Plan"))
             result = high_level_planner.select_next_task(knowledge)
-            planning_result = result.action
-
-        if isinstance(result.action, Task):
-
-            task = result.action
-            console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
-            result, messages, history = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger)
-
-            with console.status("[bold green]llm-call: analyze response") as status:
-                summary, knowledge = analyser.analyze_executor(task, result, messages, history)
 
     logger.write_line(f"run-finished; result: {str(result)}")
     console.print(Panel(result, title="Problem solved!"))
