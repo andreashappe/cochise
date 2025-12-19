@@ -20,6 +20,14 @@ class Task(BaseModel):
         description = "Concise Context for worker that executes the next step. Can be formated as a markdown list."
     )
 
+    mitre_attack_tactic: str = Field(
+        description = "The MITRE ATT&CK tactic associated with the next step."
+    )
+
+    mitre_attack_technique: str = Field(
+        description = "The MITRE ATT&CK technique associated with the next step."
+    )
+
 class AnalyzedExecution(BaseModel):
     """Analysis of an executed task which describes the overall result"""
 

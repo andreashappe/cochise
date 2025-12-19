@@ -100,6 +100,7 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
                           console=console
                           ) as progress:
                 for tool_call in ai_msg.tool_calls:
+                    console.log(tool_call)
                     display[tool_call['id']] = progress.add_task(f"[bold green]Executing `{tool_call['args']['command']}`", total=100)
                     tasks.append(asyncio.create_task(perform_tool_call(tool_call, mapping[tool_call["name"]])))
 

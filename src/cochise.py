@@ -51,9 +51,9 @@ def setup_gemini_llms():
     return llm_strategy, llm_with_tools, llm_summary
 
 def setup_openai_llms():
-    llm_strategy = ChatOpenAI(model="o4-mini")
-    llm_with_tools = ChatOpenAI(model="gpt-4.1", temperature=0).bind_tools(tools)
-    llm_summary = ChatOpenAI(model="o4-mini")
+    llm_strategy = ChatOpenAI(model="gpt-5-mini-2025-08-07")
+    llm_with_tools = ChatOpenAI(model="gpt-5-mini-2025-08-07").bind_tools(tools)
+    llm_summary = ChatOpenAI(model="gpt-5-mini-2025-08-07")
 
     return llm_strategy, llm_with_tools, llm_summary
 
@@ -85,7 +85,7 @@ async def main(conn:SSHConnection) -> None:
     while isinstance(result.action, Task):
 
         task = result.action
-        console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title='Next Step'))
+        console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title=f'Next Step ({task.mitre_attack_tactic}/{task.mitre_attack_technique})'))
         result, messages = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger)
 
         with console.status("[bold green]llm-call: analyze response") as status:

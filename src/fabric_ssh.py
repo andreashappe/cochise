@@ -37,6 +37,15 @@ class SSHConnection:
 class FabricSshExecuteInput(BaseModel):
     command: str= Field(description="the command to execute") 
 
+    mitre_attack_technique: str = Field(
+        description = "The MITRE ATT&CK technique associated with the command."
+    )
+
+    mitre_attack_procedure: str = Field(
+        description = "The MITRE ATT&CK procedure associated with the command."
+    )
+
+
 # Note: It's important that every field has type hints. BaseTool is a
 # Pydantic class and not having type hints can lead to unexpected behavior.
 class SshExecuteTool(BaseTool):
@@ -52,7 +61,7 @@ class SshExecuteTool(BaseTool):
     def _run(self, command:str):
         raise "cannot be called synchronously"
 
-    async def _arun(self, command:str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+    async def _arun(self, command:str, mitre_attack_technique:str, mitre_attack_procedure:str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         """Run the command over the (already established) SSH connection."""
 
         sudo_pass = Responder(
