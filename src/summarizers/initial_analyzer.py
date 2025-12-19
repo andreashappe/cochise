@@ -13,7 +13,6 @@ from rich.panel import Panel
 from ptt import PlanTestTreeStrategy, UpdatedPlan
 
 TEMPLATE_DIR = pathlib.Path(__file__).parent.parent / "templates"
-TEMPLATE_KNOWLEDGE = PromptTemplate.from_file(str(TEMPLATE_DIR / 'update_knowledge.md.jinja2'), template_format='jinja2')
 TEMPLATE_UPDATE = PromptTemplate.from_file(str(TEMPLATE_DIR / 'ptt_update.md.jinja2'), template_format='jinja2')
 SCENARIO = (TEMPLATE_DIR / "scenario.md").read_text()
 
@@ -49,33 +48,6 @@ def message_based_summarize(console, logger, llm, messages):
     console.print(Panel(Pretty(analyzed), title="message based findings"))
 
     return analyzed
-
-def update_knowledge(console:Console, llm, logger, knowledge:str, new_knowledge:List[str]) -> str:
-
-    console.print(Panel(knowledge, title='Old Knowledge'))
-    console.print(Panel(Pretty(new_knowledge), title='New Knowledge'))
-
-    input = {
-            'exisiting_knowledge': knowledge,
-            'new_knowledge': new_knowledge
-    }
-
-    # try to get a list of findings (disabled for now)
-    tik = datetime.datetime.now()
-    summarizer = TEMPLATE_KNOWLEDGE| llm
-    result = summarizer.invoke(input)
-    aggregated = result.content
-    tok = datetime.datetime.now()
-
-    print(str(result.response_metadata))
-    logger.write_llm_call('update_knowledge', prompt='',
-                      result=aggregated,
-                      costs=result.response_metadata,
-                      duration=(tok-tik).total_seconds())
-
-    console.print(Panel(aggregated, title='Aggregated Knowledge'))
-
-    return aggregated
 
 class InitialAnalyzer:
     def __init__(self, llm, console:Console, logger):
