@@ -38,3 +38,6 @@ class AnalyzedExecution(BaseModel):
     gathered_knowledge: List[str] = Field(
         description = "A list of gathered knowledge about the target environment, e.g., usernames, password, system information, vulnerabilities."""
     )
+
+def is_tool_call(msg) -> bool:
+    return hasattr(msg, "tool_calls") and len(msg.tool_calls) > 0

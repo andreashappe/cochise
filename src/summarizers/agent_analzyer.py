@@ -1,0 +1,186 @@
+import datetime
+from typing import List, Optional, Type
+
+from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.tools import BaseTool
+from langchain_core.tools.base import BaseModel, Field
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
+
+from ptt import PlanTestTreeStrategy
+from common import Task, is_tool_call
+
+MAX_ROUNDS = 10
+
+class Knowledge:
+    def __init__(self):
+        self.compromised_accounts = []
+        self.entity_information = []
+
+    def add_compromised_account(self, username, password, ctx):
+        self.compromised_accounts.append(
+            {
+                'username': username,
+                'password': password,
+                'context': ctx
+            }
+        )
+
+    def add_entity_information(self, entity, information):
+        self.entity_information.append({
+            'entity': entity,
+            'information': information
+        })
+
+class AddCompromisedAccoundInput(BaseModel):
+    username: str = Field(description="the compromised account")
+    credential: str = Field(description="the comprosmied password or hash")
+    ctx: str = Field(description="additional information on the compromised account")
+
+class AddCompromisedAccountTool(BaseTool):
+    name: str = "AddCompromisedAccountTool"
+    description: str = "Note that an account has been compromised, e.g., its password or password hash has been found."
+    args_schema: Type[BaseModel] = AddCompromisedAccoundInput
+    return_direct: bool = False
+    knowledge: Knowledge = None
+
+    def __init__(self, knowledge: Knowledge):
+        super(AddCompromisedAccountTool, self).__init__(knowledge=knowledge)
+
+    def _run(self, username: str, credential: str, ctx: str):
+        """Note that an account has been compromised."""
+        self.knowledge.add_compromised_account(username, credential, ctx)
+
+class AddEntityInformationInput(BaseModel):
+    entity: str = Field(description="the respective entity, e.g., an user or system or service.")
+    information: str = Field(description="the information about the respective entity")
+
+class AddEntityInformationTool(BaseTool):
+    name: str = "AddEntityInformationTool"
+    description: str = "Add information about an entity, e.g., user or system or service, that might be relevant for a latter attack."
+    args_schema: Type[BaseModel] = AddEntityInformationInput
+    return_direct: bool = False
+    knowledge: Knowledge = None
+
+    def __init__(self, knowledge: Knowledge):
+        super(AddEntityInformationTool, self).__init__(knowledge=knowledge)
+
+    def _run(self, entity: str, information: str):
+        """Note information for an entity (e.g., system or user or service) that might be relevant for a future attack."""
+        self.knowledge.add_entity_information(entity, information)
+
+class PlanUpdateInput(BaseModel):
+    plan: str = Field(description="the new plan.")
+
+class PlanUpdateTool(BaseTool):
+    name: str = "PlanUpdateTool"
+    description: str = "Update the PTT/Plan with a new version incorporating all newly gathered information."
+    args_schema: Type[BaseModel] = PlanUpdateInput
+    return_direct: bool = False
+    planner: PlanTestTreeStrategy = None
+
+    def __init__(self, planner: PlanTestTreeStrategy):
+        super(PlanUpdateTool, self).__init__(planner=planner)
+
+    def _run(self, plan: str) -> str:
+        """Replace and Update the current plan with a new plan that incorporates all the new information."""
+        self.planner.set_new_plan(plan)
+        return f"Plan updated with {plan}"
+
+class AgentAnalyzer:
+    def __init__(self, llm, console:Console, logger):
+        self.llm = llm
+        self.console = console
+        self.logger = logger
+        self.knowledge = Knowledge()
+
+    def analyze_executor(self, task: Task, result:str, messages:List[str], planner: PlanTestTreeStrategy) -> None:
+        # output the result, then return it
+        if result!= None and len(result) > 0:
+            self.console.print(Panel(result, title="ExecutorAgent Output"))
+        else:
+            self.console.print(Panel('no result summary provided', title="ExecutorAgent Output"))
+
+        tools = [
+            AddCompromisedAccountTool(self.knowledge),
+            AddEntityInformationTool(self.knowledge),
+            PlanUpdateTool(planner)
+        ]
+        llm_with_tools = self.llm.bind_tools(tools)
+
+        # create a string -> tool mapping
+        mapping = {}
+        for tool in tools:
+            mapping[tool.__class__.__name__] = tool
+
+        prompt=f"""
+Update the task plan (see system message for details).
+
+1. Each time you receive results from the worker you should 
+
+1.1. Analyze the results and identify information that might be relevant for solving your objective through future steps.
+1.2. Add new tasks or update existing task information according to the findings.
+1.2.1. You can add additional information, e.g., relevant findings, to the tree structure as tree-items too.
+1.3. You can mark a task as non-relevant and ignore that task in the future. Only do this if a task is not relevant for reaching the objective anymore. You can always make a task relevant again.
+1.4. You must always include the full task plan as answer. If you are working on subquent task groups, still include previous taskgroups, i.e., when you work on task `2.` or `2.1.` you must still include all task groups such as `1.`, `2.`, etc. within the answer.
+
+Always use the `PlanUpdateTool` to update the task plan. Do not include a title or an appendix.
+
+As final answer give a summary of the changes to the task plan.
+"""
+
+        messages.append(HumanMessage(prompt))
+
+        # try to solve our sub-task
+        round = 1
+        summary = None
+        self.console.log("Starting low-level executor run..")
+        while round <= MAX_ROUNDS:
+
+            with self.console.status("[bold green]analyst: thinking") as status:
+                tik = datetime.datetime.now()
+                ai_msg = llm_with_tools.invoke(messages)
+                tok = datetime.datetime.now()
+
+            messages.append(ai_msg)
+
+            self.logger.write_llm_call('analyst_next', prompt='',
+                                result={
+                                    'content': ai_msg.content,
+                                    'tool_calls': ai_msg.tool_calls
+                                },
+                                costs=ai_msg.response_metadata,
+                                duration=(tok-tik).total_seconds())
+
+            self.console.log(ai_msg.response_metadata)
+
+            if is_tool_call(ai_msg):
+
+                # output a summary before we do the acutal tool calls
+                result = "\n".join(list(map(lambda x: f"{x['name']}: {str(x['args'])}", ai_msg.tool_calls)))
+                self.console.print(Panel(result, title="Tool Call(s)"))
+
+                tasks = []
+                display = {}
+
+                with Progress(SpinnerColumn(),
+                            TextColumn("[progress.description]{task.description}"),
+                            BarColumn(),
+                            TimeElapsedColumn(),
+                            console=self.console
+                            ) as progress:
+
+                    for tool_call in ai_msg.tool_calls:
+                        self.console.log(tool_call)
+                        result = mapping[tool_call["name"]].invoke(tool_call["args"])
+                        messages.append(ToolMessage(content=result, tool_call_id=tool_call['id']))
+            else:
+                # workaround for gemini output
+                if 'type' in ai_msg.content[0] and ai_msg.content[0]['type'] == 'text':
+                    summary = ai_msg.content[0]['text']
+                else:
+                    summary = ai_msg.content
+                self.console.log(summary)
+                break
+            round = round + 1

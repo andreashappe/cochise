@@ -10,13 +10,10 @@ from langchain_core.messages import SystemMessage
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeElapsedColumn
 
-from common import Task
+from common import Task, is_tool_call
 
 TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
 PROMPT = PromptTemplate.from_file(str(TEMPLATE_DIR / 'executor_prompt.md.jinja2'), template_format='jinja2')
-
-def is_tool_call(msg) -> bool:
-    return hasattr(msg, "tool_calls") and len(msg.tool_calls) > 0
 
 @dataclass
 class ToolResult:

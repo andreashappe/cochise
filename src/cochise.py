@@ -14,6 +14,7 @@ from rich.panel import Panel
 
 from logger import Logger
 from summarizers.initial_analyzer import InitialAnalyzer
+from summarizers.agent_analzyer import AgentAnalyzer
 
 # setup logggin console for now
 console = Console()
@@ -70,7 +71,8 @@ async def main(conn:SSHConnection) -> None:
     knowledge = ""
     summary = None
 
-    analyser = InitialAnalyzer(llm_summary, console, logger)
+#    analyser = InitialAnalyzer(llm_summary, console, logger)
+    analyser = AgentAnalyzer(llm_summary, console, logger)
 
     # open SSH connection
     await conn.connect()
@@ -90,7 +92,7 @@ async def main(conn:SSHConnection) -> None:
 
         with console.status("[bold green]llm-call: analyze response and update plan") as status:
             analyser.analyze_executor(task, result, messages, high_level_planner)
-            console.print(Panel(high_level_planner.get_plan().plan, title="Updated Plan"))
+            console.print(Panel(high_level_planner.get_plan(), title="Updated Plan"))
 
         with console.status("[bold green]llm-call: selecting next task") as status:
             result = high_level_planner.select_next_task(knowledge)
