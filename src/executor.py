@@ -44,9 +44,6 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
     for tool in tools:
         mapping[tool.__class__.__name__] = tool
 
-    # tool_call history
-    history = []
-
     text = PROMPT.invoke(
             {'task': task,
                 'max': str(MAX_ROUNDS-1),
@@ -112,7 +109,6 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
                     progress.update(task_id, advance=100)
                     progress.console.print(Panel(tool_msg.content, title=f"Tool Result for {result['cmd']}"), markup=False)
                     logger.write_executor_tool_call('executor_cmd', result['cmd'], '?', tool_msg.content)
-                    history.append(result)
                     messages.append(tool_msg)
         else:
             # the AI message has not tool_call -> this was some sort of result then
@@ -125,4 +121,4 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
             break
         round = round + 1
 
-    return summary, messages, history
+    return summary, messages
