@@ -84,7 +84,7 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
         if is_tool_call(ai_msg):
 
             # output a summary before we do the acutal tool calls
-            result = "\n".join(list(map(lambda x: f"{x['name']}: {x['args']['command']}", ai_msg.tool_calls)))
+            result = "\n".join(list(map(lambda x: f"{x['name']} ({x['args']['mitre_attack_technique']}/{x['args']['mitre_attack_procedure']}): {x['args']['command']}", ai_msg.tool_calls)))
             console.print(Panel(result, title="Tool Call(s)"))
 
             tasks = []
@@ -97,7 +97,6 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
                           console=console
                           ) as progress:
                 for tool_call in ai_msg.tool_calls:
-                    console.log(tool_call)
                     display[tool_call['id']] = progress.add_task(f"[bold green]Executing `{tool_call['args']['command']}`", total=100)
                     tasks.append(asyncio.create_task(perform_tool_call(tool_call, mapping[tool_call["name"]])))
 

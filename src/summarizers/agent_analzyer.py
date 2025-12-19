@@ -1,12 +1,12 @@
 import datetime
-from typing import List, Optional, Type
+from typing import List, Type
 
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import BaseTool
 from langchain_core.tools.base import BaseModel, Field
 from rich.console import Console
+from rich.pretty import Pretty
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 
 from ptt import PlanTestTreeStrategy
 from common import Task, is_tool_call
@@ -48,9 +48,10 @@ class AddCompromisedAccountTool(BaseTool):
     def __init__(self, knowledge: Knowledge):
         super(AddCompromisedAccountTool, self).__init__(knowledge=knowledge)
 
-    def _run(self, username: str, credential: str, ctx: str):
+    def _run(self, username: str, credential: str, ctx: str) -> str:
         """Note that an account has been compromised."""
         self.knowledge.add_compromised_account(username, credential, ctx)
+        return f"Account {username} compromised with credential {credential} and context {ctx}"
 
 class AddEntityInformationInput(BaseModel):
     entity: str = Field(description="the respective entity, e.g., an user or system or service.")
@@ -66,9 +67,10 @@ class AddEntityInformationTool(BaseTool):
     def __init__(self, knowledge: Knowledge):
         super(AddEntityInformationTool, self).__init__(knowledge=knowledge)
 
-    def _run(self, entity: str, information: str):
+    def _run(self, entity: str, information: str) -> str:
         """Note information for an entity (e.g., system or user or service) that might be relevant for a future attack."""
         self.knowledge.add_entity_information(entity, information)
+        return f"Information for entity {entity} added: {information}"
 
 class PlanUpdateInput(BaseModel):
     plan: str = Field(description="the new plan.")
@@ -99,6 +101,7 @@ class AgentAnalyzer:
         # output the result, then return it
         if result!= None and len(result) > 0:
             self.console.print(Panel(result, title="ExecutorAgent Output"))
+            messages.append(AIMessage(content=result))
         else:
             self.console.print(Panel('no result summary provided', title="ExecutorAgent Output"))
 
@@ -134,16 +137,13 @@ As final answer give a summary of the changes to the task plan.
 
         # try to solve our sub-task
         round = 1
-        summary = None
-        self.console.log("Starting low-level executor run..")
         while round <= MAX_ROUNDS:
 
             with self.console.status("[bold green]analyst: thinking") as status:
                 tik = datetime.datetime.now()
                 ai_msg = llm_with_tools.invoke(messages)
                 tok = datetime.datetime.now()
-
-            messages.append(ai_msg)
+                messages.append(ai_msg)
 
             self.logger.write_llm_call('analyst_next', prompt='',
                                 result={
@@ -156,31 +156,16 @@ As final answer give a summary of the changes to the task plan.
             self.console.log(ai_msg.response_metadata)
 
             if is_tool_call(ai_msg):
-
-                # output a summary before we do the acutal tool calls
-                result = "\n".join(list(map(lambda x: f"{x['name']}: {str(x['args'])}", ai_msg.tool_calls)))
-                self.console.print(Panel(result, title="Tool Call(s)"))
-
-                tasks = []
-                display = {}
-
-                with Progress(SpinnerColumn(),
-                            TextColumn("[progress.description]{task.description}"),
-                            BarColumn(),
-                            TimeElapsedColumn(),
-                            console=self.console
-                            ) as progress:
-
-                    for tool_call in ai_msg.tool_calls:
-                        self.console.log(tool_call)
-                        result = mapping[tool_call["name"]].invoke(tool_call["args"])
-                        messages.append(ToolMessage(content=result, tool_call_id=tool_call['id']))
+                for tool_call in ai_msg.tool_calls:
+                    result = mapping[tool_call["name"]].invoke(tool_call["args"])
+                    self.console.print(Panel(Pretty(tool_call['args'] | {'result': result}), title=f"Tool {tool_call['name']}"))
+                    messages.append(ToolMessage(content=result, tool_call_id=tool_call['id']))
             else:
                 # workaround for gemini output
                 if 'type' in ai_msg.content[0] and ai_msg.content[0]['type'] == 'text':
                     summary = ai_msg.content[0]['text']
                 else:
                     summary = ai_msg.content
-                self.console.log(summary)
+                self.console.print(Panel(summary, title="Summary of updates"))
                 break
             round = round + 1
