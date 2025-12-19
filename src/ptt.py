@@ -19,14 +19,6 @@ class UpdatedPlan(BaseModel):
         description="the newly updated hierchical plan."
     )
 
-    successful_attacks: List[str] = Field(
-        description="List all concrete attacks that were successful in the target environment."
-    )
-
-    findings: List[str] = Field(
-        description="This is a list of potential findings gathered for the target environment."
-    )
-
 class PlanFinished(BaseModel):
     """Response to user."""
     response: str
@@ -79,38 +71,8 @@ class PlanTestTreeStrategy:
                                    (tok-tik).total_seconds())
         self.plan = result['parsed']
 
-
-    def update_plan(self, last_task: Task, summary: str, knowledge: str) -> None:
-
-        if self.plan == None:
-            target_plan = ''
-        else:
-            target_plan = self.plan.plan
-
-        input = {
-            'user_input': self.scenario,
-            'plan': target_plan,
-            'last_task': last_task,
-            'summary': summary,
-            'knowledge': knowledge,
-        }
-
-        replanner = TEMPLATE_UPDATE | self.llm.with_structured_output(UpdatedPlan, include_raw=True)
-        tik = datetime.datetime.now()
-        result = replanner.invoke(input)
-        tok = datetime.datetime.now()
-
-        # output tokens
-        metadata=result['raw'].response_metadata
-        print(str(metadata))
-
-
-        self.logger.write_llm_call('strategy_update', 
-                                   TEMPLATE_UPDATE.invoke(input).text,
-                                   result['parsed'].plan,
-                                   result['raw'].response_metadata,
-                                   (tok-tik).total_seconds())
-        self.plan = result['parsed']
+    def set_new_plan(self, new_plan: UpdatedPlan) -> None:
+        self.plan = new_plan
 
     def select_next_task(self, knowledge, llm=None) -> PlanResult:
 

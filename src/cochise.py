@@ -88,13 +88,11 @@ async def main(conn:SSHConnection) -> None:
         console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title=f'Next Step ({task.mitre_attack_tactic}/{task.mitre_attack_technique})'))
         result, messages = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger)
 
-        with console.status("[bold green]llm-call: analyze response") as status:
-            summary, knowledge = analyser.analyze_executor(result, messages)
-
-        # TODO: implement the improved agentic analyzer
-        with console.status("[bold green]llm-call: updating plan and selecting next task") as status:
-            high_level_planner.update_plan(task, summary, knowledge)
+        with console.status("[bold green]llm-call: analyze response and update plan") as status:
+            analyser.analyze_executor(task, result, messages, high_level_planner)
             console.print(Panel(high_level_planner.get_plan().plan, title="Updated Plan"))
+
+        with console.status("[bold green]llm-call: selecting next task") as status:
             result = high_level_planner.select_next_task(knowledge)
 
     logger.write_line(f"run-finished; result: {str(result)}")
