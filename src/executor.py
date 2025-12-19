@@ -85,7 +85,7 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
                               costs=ai_msg.response_metadata,
                               duration=(tok-tik).total_seconds())
 
-        print(str(ai_msg.response_metadata))
+        console.log(ai_msg.response_metadata)
 
         if is_tool_call(ai_msg):
 
@@ -116,7 +116,12 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
                     messages.append(tool_msg)
         else:
             # the AI message has not tool_call -> this was some sort of result then
-            summary = ai_msg.content
+
+            # workaround for gemini output
+            if 'type' in ai_msg.content[0] and ai_msg.content[0]['type'] == 'text':
+                summary = ai_msg.content[0]['text']
+            else:
+                summary = ai_msg.content
             break
         round = round + 1
 

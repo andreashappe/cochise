@@ -2,6 +2,7 @@ import asyncio
 
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from common import Task, get_or_fail
 from executor import executor_run
 from ptt import PlanTestTreeStrategy, PlanResult
@@ -66,11 +67,36 @@ Tool-specific guidance:
     - it's `impacket-GetNPUsers` not `impacket-getNPUsers`
 """
 
-llm_strategy = ChatOpenAI(model="o4-mini")
-
 tools = [SshExecuteTool(conn)]
-llm_with_tools = ChatOpenAI(model="gpt-4.1", temperature=0).bind_tools(tools)
-llm_summary = ChatOpenAI(model="o4-mini")
+
+def setup_gemini_llms():
+    model = 'gemini-3-flash-preview'
+
+    llm_strategy = ChatGoogleGenerativeAI(
+        model=model,
+        max_tokens=None,
+    )
+
+    llm_with_tools = ChatGoogleGenerativeAI(
+        model=model,
+        max_tokens=None,
+    ).bind_tools(tools)
+
+    llm_summary = ChatGoogleGenerativeAI(
+        model=model,
+        max_tokens=None,
+    )
+
+    return llm_strategy, llm_with_tools, llm_summary
+
+def setup_openai_llms():
+    llm_strategy = ChatOpenAI(model="o4-mini")
+    llm_with_tools = ChatOpenAI(model="gpt-4.1", temperature=0).bind_tools(tools)
+    llm_summary = ChatOpenAI(model="o4-mini")
+
+    return llm_strategy, llm_with_tools, llm_summary
+
+llm_strategy, llm_with_tools, llm_summary = setup_gemini_llms()
 
 # TODO: we could use a cached (auto-generated) plan here instead of
 # creating a new one every run
@@ -79,7 +105,6 @@ high_level_planner = PlanTestTreeStrategy(llm_strategy, SCENARIO, logger, plan =
 
 async def main(conn:SSHConnection) -> None:
     task: Task = None
-    planning_result: PlanResult = None
 
     knowledge = ""
     summary = None
