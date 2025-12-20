@@ -84,7 +84,7 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
                               costs=metadata,
                               duration=(tok-tik).total_seconds())
 
-        console.log(ai_msg.response_metadata)
+        console.log(str(metadata))
 
         if is_tool_call(ai_msg):
 
