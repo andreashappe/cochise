@@ -40,10 +40,14 @@ def message_based_summarize(console, logger, llm, messages):
     analyzed = result['parsed']
     tok = datetime.datetime.now()
 
-    print(str(result['raw'].response_metadata))
+    costs=result['raw'].response_metadata
+    if hasattr(result['raw'], 'usage_metadata'):
+        costs['usage_metadata'] = result['raw'].usage_metadata
+
+    print(str(costs))
     logger.write_llm_call('summarizer', prompt='',
                       result=analyzed,
-                      costs=result['raw'].response_metadata,
+                      costs=costs,
                       duration=(tok-tik).total_seconds())
     console.print(Panel(Pretty(analyzed), title="message based findings"))
 
@@ -88,12 +92,15 @@ class InitialAnalyzer:
         tok = datetime.datetime.now()
 
         # output tokens
+        if hasattr(result['raw'], 'usage_metadata'):
+            result['raw'].response_metadata['usage_metadata'] = result['raw'].usage_metadata
         metadata=result['raw'].response_metadata
+
         print(str(metadata))
 
         self.logger.write_llm_call('strategy_update', 
                                    TEMPLATE_UPDATE.invoke(input).text,
                                    result['parsed'].plan,
-                                   result['raw'].response_metadata,
+                                   metadata,
                                    (tok-tik).total_seconds())
         planner.set_new_plan(result['parsed'])

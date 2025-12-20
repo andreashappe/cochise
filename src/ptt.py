@@ -61,13 +61,16 @@ class PlanTestTreeStrategy:
         tok = datetime.datetime.now()
 
         # output tokens
+        if hasattr(result['raw'], 'usage_metadata'):
+            result['raw'].response_metadata['usage_metadata'] = result['raw'].usage_metadata
         metadata=result['raw'].response_metadata
+
         print(str(metadata))
 
         self.logger.write_llm_call('strategy_update', 
                                    TEMPLATE_UPDATE.invoke(input).text,
                                    result['parsed'].plan,
-                                   result['raw'].response_metadata,
+                                   metadata,
                                    (tok-tik).total_seconds())
         self.plan = result['parsed']
 
@@ -91,13 +94,17 @@ class PlanTestTreeStrategy:
         tok = datetime.datetime.now()
 
         # output tokens
-        print(str(result['raw'].response_metadata))
+        if hasattr(result['raw'], 'usage_metadata'):
+            result['raw'].response_metadata['usage_metadata'] = result['raw'].usage_metadata
+        metadata=result['raw'].response_metadata
+
+        print(str(metadata))
 
         if isinstance(result['parsed'].action, PlanFinished):
             self.logger.write_llm_call('strategy_finished', 
                                        TEMPLATE_NEXT.invoke(input).text,
                                        result['parsed'].action.response,
-                                       result['raw'].response_metadata,
+                                       metadata,
                                        (tok-tik).total_seconds())
         else:
             self.logger.write_llm_call('strategy_next_task', 
@@ -106,7 +113,7 @@ class PlanTestTreeStrategy:
                                             'next_step': result['parsed'].action.next_step,
                                             'next_step_context': result['parsed'].action.next_step_context
                                        },
-                                       result['raw'].response_metadata,
+                                       metadata,
                                        (tok-tik).total_seconds())
         return result['parsed']
     

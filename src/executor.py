@@ -71,12 +71,17 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
 
         messages.append(ai_msg)
 
+        metadata = ai_msg.response_metadata
+        if hasattr(ai_msg, 'usage_metadata'):
+            metadata['usage_metadata'] = ai_msg.usage_metadata
+
+
         logger.write_llm_call('executor_next_cmds', prompt='',
                               result={
                                 'content': ai_msg.content,
                                 'tool_calls': ai_msg.tool_calls
                               },
-                              costs=ai_msg.response_metadata,
+                              costs=metadata,
                               duration=(tok-tik).total_seconds())
 
         console.log(ai_msg.response_metadata)

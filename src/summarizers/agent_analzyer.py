@@ -177,15 +177,18 @@ Make sure to note down all compromised accounts and entities and update the plan
                 tok = datetime.datetime.now()
                 messages.append(ai_msg)
 
+            metadata = ai_msg.response_metadata
+            if hasattr(ai_msg, 'usage_metadata'):
+                metadata['usage_metadata'] = ai_msg.usage_metadata
+            self.console.log(str(metadata))
+
             self.logger.write_llm_call('analyst_next', prompt='',
                                 result={
                                     'content': ai_msg.content,
                                     'tool_calls': ai_msg.tool_calls
                                 },
-                                costs=ai_msg.response_metadata,
+                                costs=metadata,
                                 duration=(tok-tik).total_seconds())
-
-            self.console.log(ai_msg.response_metadata)
 
             if is_tool_call(ai_msg):
                 for tool_call in ai_msg.tool_calls:
