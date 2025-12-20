@@ -33,23 +33,46 @@ class Knowledge:
             'information': information
         })
 
-class AddCompromisedAccoundInput(BaseModel):
-    username: str = Field(description="the compromised account")
-    credential: str = Field(description="the comprosmied password or hash")
-    ctx: str = Field(description="additional information on the compromised account")
+    def get_compromised_accounts_markdown_table(self) -> str:
+        result = "| Username | Password | Context |\n|----------|----------|---------|\n"
+        for account in self.compromised_accounts:
+            result += f"| {account['username']} | {account['password']} | {account['context']} |\n"
+        return result
 
-class AddCompromisedAccountTool(BaseTool):
-    name: str = "AddCompromisedAccountTool"
-    description: str = "Note that an account has been compromised, e.g., its password or password hash has been found."
-    args_schema: Type[BaseModel] = AddCompromisedAccoundInput
+    def get_entity_information_markdown_table(self) -> str:
+        result = "| Entity | Information |\n|----------|---------|\n"
+        for entity in self.entity_information:
+            result += f"| {entity['entity']} | {entity['information']} |\n"
+        return result
+
+    def get_knowledge(self) -> str:
+        result = "# Existing Knowledge\n\n"
+        if len(self.compromised_accounts) > 0:
+            result += "## Compromised Accounts\n\n"
+            result += self.get_compromised_accounts_markdown_table()
+        if len(self.entity_information) > 0:
+            result += "## Entity Information\n\n"
+            result += self.get_entity_information_markdown_table()
+        result += "\n\n"
+        return result
+
+class AddAccoundInformationInput(BaseModel):
+    username: str = Field(description="the username of the identified or compromised account")
+    credential: str = Field(description="the account's password or password hash")
+    ctx: str = Field(description="additional information/context on the compromised account")
+
+class AddAccountInformationTool(BaseTool):
+    name: str = "AddAccountInformationTool"
+    description: str = "Save information on identified/compromised account, esp. if you a password or hash has been identified."
+    args_schema: Type[BaseModel] = AddAccoundInformationInput
     return_direct: bool = False
     knowledge: Knowledge = None
 
     def __init__(self, knowledge: Knowledge):
-        super(AddCompromisedAccountTool, self).__init__(knowledge=knowledge)
+        super(AddAccountInformationTool, self).__init__(knowledge=knowledge)
 
     def _run(self, username: str, credential: str, ctx: str) -> str:
-        """Note that an account has been compromised."""
+        """Save information on identified/compromised account, esp. if you a password or hash has been identified."""
         self.knowledge.add_compromised_account(username, credential, ctx)
         return f"Account {username} compromised with credential {credential} and context {ctx}"
 
@@ -59,7 +82,7 @@ class AddEntityInformationInput(BaseModel):
 
 class AddEntityInformationTool(BaseTool):
     name: str = "AddEntityInformationTool"
-    description: str = "Add information about an entity, e.g., user or system or service, that might be relevant for a latter attack."
+    description: str = "Add information about an entity, e.g., user or system or service or vulnerability, that might be relevant for a latter attack."
     args_schema: Type[BaseModel] = AddEntityInformationInput
     return_direct: bool = False
     knowledge: Knowledge = None
@@ -68,7 +91,7 @@ class AddEntityInformationTool(BaseTool):
         super(AddEntityInformationTool, self).__init__(knowledge=knowledge)
 
     def _run(self, entity: str, information: str) -> str:
-        """Note information for an entity (e.g., system or user or service) that might be relevant for a future attack."""
+        """Note information for an entity (e.g., system or user or service or vulnerability) that might be relevant for a future attack."""
         self.knowledge.add_entity_information(entity, information)
         return f"Information for entity {entity} added: {information}"
 
@@ -97,6 +120,9 @@ class AgentAnalyzer:
         self.logger = logger
         self.knowledge = Knowledge()
 
+    def get_knowledge(self) -> str:
+        return self.knowledge.get_knowledge()
+
     def analyze_executor(self, task: Task, result:str, messages:List[str], planner: PlanTestTreeStrategy) -> None:
         # output the result, then return it
         if result!= None and len(result) > 0:
@@ -106,7 +132,7 @@ class AgentAnalyzer:
             self.console.print(Panel('no result summary provided', title="ExecutorAgent Output"))
 
         tools = [
-            AddCompromisedAccountTool(self.knowledge),
+            AddAccountInformationTool(self.knowledge),
             AddEntityInformationTool(self.knowledge),
             PlanUpdateTool(planner)
         ]
@@ -128,9 +154,15 @@ Update the task plan (see system message for details).
 1.3. You can mark a task as non-relevant and ignore that task in the future. Only do this if a task is not relevant for reaching the objective anymore. You can always make a task relevant again.
 1.4. You must always include the full task plan as answer. If you are working on subquent task groups, still include previous taskgroups, i.e., when you work on task `2.` or `2.1.` you must still include all task groups such as `1.`, `2.`, etc. within the answer.
 
+Initially, you should add information on identified/compromised accounts and entities.
+
+1.1. You should add information on identified/compromised accounts and entities.
+1.2. You should add information on vulnerabilities and other entities that might be relevant for a future attack.
+1.3. You should add information on successful attacks and other information that might be relevant for a future attack.
+
 Always use the `PlanUpdateTool` to update the task plan. Do not include a title or an appendix.
 
-As final answer give a summary of the changes to the task plan.
+Make sure to note down all compromised accounts and entities and update the plan before finishing the analysis. As final answer give a summary of the changes to the task plan.
 """
 
         messages.append(HumanMessage(prompt))

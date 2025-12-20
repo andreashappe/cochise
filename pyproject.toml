@@ -6,12 +6,12 @@ build-backend = "setuptools.build_meta"
 name = "cochise"
 version = "0.0.2"
 dependencies = [
-    "langchain-openai>=0.3.1",
-    "langchain-google-genai",
+    "langchain-openai>=1.1.4",
+    "langchain-google-genai>=4.1.2",
     "python-dotenv>=1.0.1",
-    "rich>=13.9.2",
-    "structlog>=25.1",
+    "rich>=14.2.0",
+    "structlog>=25.5.0",
     "asyncssh",
     "jinja2"
 ]
-requires-python = ">= 3.8"
+requires-python = ">= 3.12"

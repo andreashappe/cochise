@@ -84,7 +84,7 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
         if is_tool_call(ai_msg):
 
             # output a summary before we do the acutal tool calls
-            result = "\n".join(list(map(lambda x: f"{x['name']} ({x['args']['mitre_attack_technique']}/{x['args']['mitre_attack_procedure']}): {x['args']['command']}", ai_msg.tool_calls)))
+            result = "\n\n".join(list(map(lambda x: f"{x['name']} ({x['args']['mitre_attack_technique']}/{x['args']['mitre_attack_procedure']}):\n{x['args']['command']}", ai_msg.tool_calls)))
             console.print(Panel(result, title="Tool Call(s)"))
 
             tasks = []

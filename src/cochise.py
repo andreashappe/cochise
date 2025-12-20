@@ -88,6 +88,7 @@ async def main(conn:SSHConnection) -> None:
 
         task = result.action
         console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title=f'Next Step ({task.mitre_attack_tactic}/{task.mitre_attack_technique})'))
+        knowledge = knowledge + "\n\n" + analyser.get_knowledge()
         result, messages = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger)
 
         with console.status("[bold green]llm-call: analyze response and update plan") as status:
