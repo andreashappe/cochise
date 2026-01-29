@@ -115,12 +115,22 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
         else:
             # the AI message has not tool_call -> this was some sort of result then
 
-            # workaround for gemini output
-            if 'type' in ai_msg.content[0] and ai_msg.content[0]['type'] == 'text':
-                summary = ai_msg.content[0]['text']
+            if ai_msg.content == '':
+                console.log(str(ai_msg))
+                console.log("Empty response from executor LLM.. retrying")
             else:
-                summary = ai_msg.content
-            break
+                # workaround for gemini output
+                try:
+                    if 'type' in ai_msg.content[0] and ai_msg.content[0]['type'] == 'text':
+                        summary = ai_msg.content[0]['text']
+                    else:
+                        summary = ai_msg.content
+                    break
+                except Exception as e:
+                    console.log(str(ai_msg))
+                    print(str(e))
+                    raise e
+
         round = round + 1
 
     return summary, messages

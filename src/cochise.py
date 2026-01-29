@@ -11,6 +11,7 @@ from kalissh import get_ssh_connection_from_env, SshExecuteTool, SSHConnection
 
 from rich.console import Console
 from rich.panel import Panel
+from rich.pretty import Pretty
 
 from logger import Logger
 from summarizers.initial_analyzer import InitialAnalyzer
@@ -52,9 +53,30 @@ def setup_gemini_llms():
     return llm_strategy, llm_with_tools, llm_summary
 
 def setup_openai_llms():
-    llm_strategy = ChatOpenAI(model="gpt-5-mini-2025-08-07")
-    llm_with_tools = ChatOpenAI(model="gpt-5-mini-2025-08-07").bind_tools(tools)
-    llm_summary = ChatOpenAI(model="gpt-5-mini-2025-08-07")
+    llm_strategy = ChatOpenAI(model="gpt-5-mini")
+    llm_with_tools = ChatOpenAI(model="gpt-5-mini").bind_tools(tools)
+    llm_summary = ChatOpenAI(model="gpt-5-mini")
+
+    return llm_strategy, llm_with_tools, llm_summary
+
+def setup_openrouter_llms():
+    API_BASE = "https://openrouter.ai/api/v1"
+    api_key = get_or_fail("OPENROUTER_API_KEY")
+
+    # problem with the plan-finished, next-step logic
+    model = 'openai/gpt-oss-120b'
+    # model = 'z-ai/glm-4.7'
+    # model = 'deepseek/deepseek-v3.2'
+    
+    llm_strategy = ChatOpenAI(model=model,
+                                openai_api_base=API_BASE,
+                                openai_api_key=api_key)
+    llm_with_tools = ChatOpenAI(model=model,
+                                openai_api_base=API_BASE,
+                                openai_api_key=api_key).bind_tools(tools)
+    llm_summary = ChatOpenAI(model=model,
+                                openai_api_base=API_BASE,
+                                openai_api_key=api_key)
 
     return llm_strategy, llm_with_tools, llm_summary
 
@@ -99,6 +121,6 @@ async def main(conn:SSHConnection) -> None:
             result = high_level_planner.select_next_task(knowledge)
 
     logger.write_line(f"run-finished; result: {str(result)}")
-    console.print(Panel(result, title="Hacking Run finished!"))
+    console.print(Panel(Pretty(result.action), title="Hacking Run finished!"))
 
 asyncio.run(main(conn))
