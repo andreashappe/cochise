@@ -2,20 +2,18 @@ import asyncio
 import pathlib
 
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from common import Task, get_or_fail
 from executor import executor_run
 from ptt import PlanTestTreeStrategy
-from kalissh import get_ssh_connection_from_env, SshExecuteTool, SSHConnection
+from kalissh import get_ssh_connection_from_env, SSHConnection
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
 
 from logger import Logger
-from summarizers.initial_analyzer import InitialAnalyzer
-from summarizers.agent_analzyer import AgentAnalyzer
+from agent_analzyer import AgentAnalyzer
 
 # setup logggin console for now
 console = Console()
@@ -30,7 +28,7 @@ logger.write_line("starting testrun")
 
 SCENARIO = (pathlib.Path(__file__).parent / "templates" / "scenario.md").read_text()
 
-tools = [SshExecuteTool(conn)]
+tools = [conn.execute_command]
 
 def setup_gemini_llms():
     model = 'gemini-3-flash-preview'
@@ -52,40 +50,15 @@ def setup_gemini_llms():
 
     return llm_strategy, llm_with_tools, llm_summary
 
-def setup_openai_llms():
-    llm_strategy = ChatOpenAI(model="gpt-5-mini")
-    llm_with_tools = ChatOpenAI(model="gpt-5-mini").bind_tools(tools)
-    llm_summary = ChatOpenAI(model="gpt-5-mini")
-
-    return llm_strategy, llm_with_tools, llm_summary
-
-def setup_openrouter_llms():
-    API_BASE = "https://openrouter.ai/api/v1"
-    api_key = get_or_fail("OPENROUTER_API_KEY")
-
-    # problem with the plan-finished, next-step logic
-    model = 'openai/gpt-oss-120b'
-    # model = 'z-ai/glm-4.7'
-    # model = 'deepseek/deepseek-v3.2'
-    
-    llm_strategy = ChatOpenAI(model=model,
-                                openai_api_base=API_BASE,
-                                openai_api_key=api_key)
-    llm_with_tools = ChatOpenAI(model=model,
-                                openai_api_base=API_BASE,
-                                openai_api_key=api_key).bind_tools(tools)
-    llm_summary = ChatOpenAI(model=model,
-                                openai_api_base=API_BASE,
-                                openai_api_key=api_key)
-
-    return llm_strategy, llm_with_tools, llm_summary
-
 llm_strategy, llm_with_tools, llm_summary = setup_gemini_llms()
 
 # TODO: we could use a cached (auto-generated) plan here instead of
 # creating a new one every run
 
-high_level_planner = PlanTestTreeStrategy(llm_strategy, SCENARIO, logger, plan = None)
+model = get_or_fail("LITELLM_MODEL")
+api_key = get_or_fail("LITELLM_API_KEY")
+
+high_level_planner = PlanTestTreeStrategy(model, api_key, SCENARIO, logger, plan = None)
 
 async def main(conn:SSHConnection) -> None:
     task: Task = None
@@ -102,7 +75,7 @@ async def main(conn:SSHConnection) -> None:
     # create an initial plan and select the first task 
     with console.status("[bold green]llm-call: creating initial plan and selecting next task") as status:
         high_level_planner.create_initial_plan()
-        console.print(Panel(high_level_planner.get_plan().plan, title="Initial Plan"))
+        console.print(Panel(high_level_planner.get_plan(), title="Initial Plan"))
         result = high_level_planner.select_next_task(knowledge)
 
     # work and update the plan until we have no tasks left, i.e., the problem is solved
@@ -111,7 +84,7 @@ async def main(conn:SSHConnection) -> None:
         task = result.action
         console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title=f'Next Step ({task.mitre_attack_tactic}/{task.mitre_attack_technique})'))
         knowledge = knowledge + "\n\n" + analyser.get_knowledge()
-        result, messages = await executor_run(SCENARIO, task, knowledge, llm_with_tools, tools, console, logger)
+        result, messages = await executor_run(SCENARIO, task, knowledge, model, api_key, tools, console, logger)
 
         with console.status("[bold green]llm-call: analyze response and update plan") as status:
             analyser.analyze_executor(task, result, messages, high_level_planner)

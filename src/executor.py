@@ -1,11 +1,13 @@
 import asyncio
 import datetime
 import pathlib
+import litellm
 
+from jinja2 import Template
 from dataclasses import dataclass
+from typing import Callable
 
-from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, PromptTemplate
-from langchain_core.messages import SystemMessage
+from langchain_core.prompts import PromptTemplate
 
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeElapsedColumn
@@ -14,6 +16,64 @@ from common import Task, is_tool_call
 
 TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
 PROMPT = PromptTemplate.from_file(str(TEMPLATE_DIR / 'executor_prompt.md.jinja2'), template_format='jinja2')
+
+
+class LLMFunctionMapping:
+    def __init__(self, tool_functions: list[Callable]):
+        self.tools = []
+        self.mapping = {}
+
+        for i in tool_functions:
+            tool = litellm.utils.function_to_dict(i)
+
+            self.tools.append({"type": "function", "function": tool})
+            self.mapping[tool["name"]] = i
+
+    def get_tool_definitions(self) -> list[dict[str, Any]]:
+        return self.tools
+
+    def get_function(self, str) -> Callable:
+        return self.mapping[str]
+
+
+def tool_calls_to_json(tool_calls):
+    result = []
+    if tool_calls is not None:
+        for i in tool_calls:
+            result.append({"name": i.function.name, "arguments": i.function.arguments})
+    return result
+
+def convert_costs_to_json(costs):
+    result = costs.__dict__
+    if result["prompt_tokens_details"] is not None:
+        result["prompt_tokens_details"] = costs.prompt_tokens_details.__dict__
+    if result["completion_tokens_details"] is not None:
+        result["completion_tokens_details"] = costs.completion_tokens_details.__dict__
+    return result
+
+def llm_tool_call(
+    model: str,
+    api_key: str,
+    tools: LLMFunctionMapping,
+    messages: list[dict[str, Any]]):
+
+    tik = datetime.datetime.now()
+    response = litellm.completion(
+        model=model,
+        messages=messages,
+        tools=tools.get_tool_definitions(),
+        api_key=api_key,
+    )
+    tok = datetime.datetime.now()
+
+    if len(response.choices) != 1:
+        raise RuntimeError(f"Expected exactly one LLM choice, but got {len(response.choices)}.")
+
+    response_message = response.choices[0].message
+    costs = convert_costs_to_json(response.usage)
+    duration = (tok - tik).total_seconds()
+
+    return response_message, costs, duration
 
 @dataclass
 class ToolResult:
@@ -34,29 +94,24 @@ async def perform_tool_call(tool_call, tool):
         'result': tool_msg.content
     }
 
-async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, console, logger, MAX_ROUNDS:int=10):
 
-    # create a string -> tool mapping
-    mapping = {}
-    for tool in tools:
-        mapping[tool.__class__.__name__] = tool
+TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
+PROMPT = (TEMPLATE_DIR / "executor_prompt.md.jinja2").read_text()
 
-    text = PROMPT.invoke(
-            {'task': task,
-                'max': str(MAX_ROUNDS-1),
-                'knowledge': knowledge
-            }).text
-    
-    # the initial prompt
-    chat_template = ChatPromptTemplate.from_messages(
-        [
-            SystemMessage(content=SCENARIO),
-            HumanMessagePromptTemplate.from_template(text)
-        ]
-    )
+async def executor_run(SCENARIO, task: Task, knowledge, model, api_key, tools, console, logger, MAX_ROUNDS:int=10):
 
-    # our message history
-    messages = chat_template.format_messages(task=task, max=(MAX_ROUNDS-1))
+    prompt = Template(PROMPT).render({
+        'task': task,
+        'max': str(MAX_ROUNDS-1),
+        'knowledge': knowledge
+    })
+        
+    history = [
+        { "role": "system", "content": SCENARIO },
+        { "role": "user", "content": prompt }
+    ]
+
+    tools = LLMFunctionMapping(tools)
 
     # try to solve our sub-task
     round = 1
@@ -66,9 +121,22 @@ async def executor_run(SCENARIO, task: Task, knowledge, llm2_with_tools, tools, 
 
         with console.status("[bold green]executor: thinking") as status:
             tik = datetime.datetime.now()
-            ai_msg = llm2_with_tools.invoke(messages)
-            tok = datetime.datetime.now()
 
+            print(model)
+            print(api_key)
+
+            response_message = llm_tool_call(
+                model,
+                api_key,
+                tools,
+                history
+            )
+            
+            history.append(response_message)
+
+            print(str(response_message))
+
+        raise "does not work yet!!!"
         messages.append(ai_msg)
 
         metadata = ai_msg.response_metadata

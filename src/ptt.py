@@ -1,17 +1,16 @@
 import datetime
 import pathlib
+from jinja2 import Template
+import litellm
 
 from common import Task
+from dataclasses import asdict, dataclass
+from typing import Any, Type
 from logger import Logger
-from typing import Union, List
+from typing import Union
 from pydantic import BaseModel, Field
 
-from langchain_core.prompts import PromptTemplate
-
-TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
-TEMPLATE_UPDATE = PromptTemplate.from_file(str(TEMPLATE_DIR / 'ptt_update.md.jinja2'), template_format='jinja2')
-TEMPLATE_NEXT   = PromptTemplate.from_file(str(TEMPLATE_DIR / 'ptt_next.md.jinja2'), template_format='jinja2')
-
+@dataclass
 class UpdatedPlan(BaseModel):
     """This is the updated plan that contains all proposed changes."""
 
@@ -19,10 +18,12 @@ class UpdatedPlan(BaseModel):
         description="the newly updated hierchical plan."
     )
 
+@dataclass
 class PlanFinished(BaseModel):
     """Response to user."""
     response: str
 
+@dataclass
 class PlanResult(BaseModel):
     """Action to perform."""
 
@@ -31,14 +32,69 @@ class PlanResult(BaseModel):
         "If you need to further use tools to get the answer, use Plan."
     )
 
+
+def convert_costs_to_json(costs):
+    result = costs.__dict__
+    if result["prompt_tokens_details"] is not None:
+        result["prompt_tokens_details"] = costs.prompt_tokens_details.__dict__
+    if result["completion_tokens_details"] is not None:
+        result["completion_tokens_details"] = costs.completion_tokens_details.__dict__
+    return result
+
+
+def llm_typed_call[T: BaseModel](
+    model: str,
+    api_key: str,
+    messages: list[dict[str, Any]],
+    id: str,
+    type: Type[T] | None = None,
+) -> T:
+    """make a simple LLM call without any response format parsing"""
+
+    tik = datetime.datetime.now()
+    response = litellm.completion(
+        model=model,
+        messages=messages,
+        api_key=api_key,
+        response_format=type,
+    )
+    tok = datetime.datetime.now()
+
+    if len(response.choices) != 1:
+        raise RuntimeError(f"Expected exactly one LLM choice, but got {len(response.choices)}.")
+
+    # output tokens costs
+    costs = convert_costs_to_json(response.usage)
+    duration = (tok - tik).total_seconds()
+
+    if type is not None:
+        result = type.model_validate_json(response.choices[0].message.content)
+        content = asdict(result)
+        return result, duration, costs
+    else:
+        result = response.choices[0].message
+        content = {
+            "content": result.content,
+            "reasoning_content": result.reasoning_content
+            if hasattr(result, "reasoning_content")
+            else None,
+        }
+        return content, duration, costs
+
+
+TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
+PLAN_UPDATE = (TEMPLATE_DIR / "ptt_update.md.jinja2").read_text()
+PLAN_NEXT_STEP = (TEMPLATE_DIR / "ptt_next.md.jinja2").read_text()
+
 class PlanTestTreeStrategy:
 
-    plan: UpdatedPlan = None
+    plan: str = ''
     logger: Logger
     scenario: str
 
-    def __init__(self, llm, scenario, logger, plan=None):
-        self.llm = llm
+    def __init__(self, model, model_api_key, scenario, logger, plan=None):
+        self.model = model
+        self.model_api_key = model_api_key
         self.scenario = scenario
         self.logger = logger
         self.plan = plan
@@ -55,29 +111,32 @@ class PlanTestTreeStrategy:
             'knowledge': '',
         }
 
-        replanner = TEMPLATE_UPDATE | self.llm.with_structured_output(UpdatedPlan, include_raw=True)
-        tik = datetime.datetime.now()
-        result = replanner.invoke(input)
-        tok = datetime.datetime.now()
+        prompt = Template(PLAN_UPDATE).render(input)
+        history = [
+            {"role": "system", "content": self.scenario},
+            {"role": "user", "content": prompt}
+        ]
 
-        # output tokens
-        if hasattr(result['raw'], 'usage_metadata'):
-            result['raw'].response_metadata['usage_metadata'] = result['raw'].usage_metadata
-        metadata=result['raw'].response_metadata
+        result, duration, costs = llm_typed_call(
+            self.model,
+            self.model_api_key,
+            history,
+            "planner_initial_plan",
+        )
 
-        print(str(metadata))
+        self.plan = result["content"]
+        print(str(costs))
 
         self.logger.write_llm_call('strategy_update', 
-                                   TEMPLATE_UPDATE.invoke(input).text,
-                                   result['parsed'].plan,
-                                   metadata,
-                                   (tok-tik).total_seconds())
-        self.plan = result['parsed']
+                                   prompt,
+                                   result['content'],
+                                   costs,
+                                   duration)
 
-    def set_new_plan(self, new_plan: UpdatedPlan) -> None:
+    def set_new_plan(self, new_plan: str) -> None:
         self.plan = new_plan
 
-    def select_next_task(self, knowledge, llm=None) -> PlanResult:
+    def select_next_task(self, knowledge) -> PlanResult:
 
         input = {
             'user_input': self.scenario,
@@ -85,37 +144,37 @@ class PlanTestTreeStrategy:
             'knowledge': knowledge
         }
 
-        if llm == None:
-            llm = self.llm
+        prompt = Template(PLAN_NEXT_STEP).render(input)
+        history = [
+            {"role": "system", "content": self.scenario},
+            {"role": "user", "content": prompt}
+        ]
 
-        select = TEMPLATE_NEXT | llm.with_structured_output(PlanResult, include_raw=True)
-        tik = datetime.datetime.now()
-        result = select.invoke(input)
-        tok = datetime.datetime.now()
+        result, duration, costs = llm_typed_call(
+            self.model,
+            self.model_api_key,
+            history,
+            "planner_initial_plan",
+            PlanResult
+        )
 
-        # output tokens
-        if hasattr(result['raw'], 'usage_metadata'):
-            result['raw'].response_metadata['usage_metadata'] = result['raw'].usage_metadata
-        metadata=result['raw'].response_metadata
-
-        print(str(metadata))
-
-        if isinstance(result['parsed'].action, PlanFinished):
+        print(str(costs))
+        if isinstance(result.action, PlanFinished):
             self.logger.write_llm_call('strategy_finished', 
-                                       TEMPLATE_NEXT.invoke(input).text,
-                                       result['parsed'].action.response,
-                                       metadata,
-                                       (tok-tik).total_seconds())
+                                       prompt, 
+                                       result.action.response,
+                                       costs,
+                                       duration)
         else:
             self.logger.write_llm_call('strategy_next_task', 
-                                       TEMPLATE_NEXT.invoke(input).text,
+                                       prompt,
                                        {
-                                            'next_step': result['parsed'].action.next_step,
-                                            'next_step_context': result['parsed'].action.next_step_context
+                                            'next_step': result.action.next_step,
+                                            'next_step_context': result.action.next_step_context
                                        },
-                                       metadata,
-                                       (tok-tik).total_seconds())
-        return result['parsed']
+                                       costs,
+                                       duration)
+        return result
     
     def get_plan(self) -> str:
         return self.plan
