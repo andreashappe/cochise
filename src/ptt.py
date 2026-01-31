@@ -134,6 +134,13 @@ class PlanTestTreeStrategy:
                                    duration)
 
     def set_new_plan(self, new_plan: str) -> None:
+        """ Replace and Update the current plan with a new plan that incorporates all the new information.
+
+        Parameters
+        ----------
+        new_plan : str
+            The new plan that should replace the current plan.
+        """
         self.plan = new_plan
 
     def select_next_task(self, knowledge) -> PlanResult:

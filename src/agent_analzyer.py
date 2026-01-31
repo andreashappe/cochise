@@ -1,15 +1,12 @@
-import datetime
-from typing import List, Type
+import json
+from typing import List
 
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
-from langchain_core.tools import BaseTool
-from langchain_core.tools.base import BaseModel, Field
 from rich.console import Console
 from rich.pretty import Pretty
 from rich.panel import Panel
 
 from ptt import PlanTestTreeStrategy
-from common import Task, is_tool_call
+from common import Task, is_tool_call, LLMFunctionMapping, llm_tool_call
 
 MAX_ROUNDS = 10
 
@@ -19,6 +16,17 @@ class Knowledge:
         self.entity_information = []
 
     def add_compromised_account(self, username, password, ctx):
+        """Save information on identified/compromised account, esp. if you a password or hash has been identified.
+
+        Parameters
+        ----------
+        username : str
+            the username of the identified or compromised account.
+        password : str
+            the account's password or password hash.
+        ctx : str
+            additional information/context on the compromised account.
+        """
         self.compromised_accounts.append(
             {
                 'username': username,
@@ -28,6 +36,15 @@ class Knowledge:
         )
 
     def add_entity_information(self, entity, information):
+        """Note information for an entity (e.g., system or user or service or vulnerability) that might be relevant for a future attack.
+
+        Parameters
+        ----------
+        entity : str 
+            The respective entity, e.g., an user or system or service.
+        information : str
+            The information about the respective entity.
+        """ 
         self.entity_information.append({
             'entity': entity,
             'information': information
@@ -56,66 +73,10 @@ class Knowledge:
         result += "\n\n"
         return result
 
-class AddAccoundInformationInput(BaseModel):
-    username: str = Field(description="the username of the identified or compromised account")
-    credential: str = Field(description="the account's password or password hash")
-    ctx: str = Field(description="additional information/context on the compromised account")
-
-class AddAccountInformationTool(BaseTool):
-    name: str = "AddAccountInformationTool"
-    description: str = "Save information on identified/compromised account, esp. if you a password or hash has been identified."
-    args_schema: Type[BaseModel] = AddAccoundInformationInput
-    return_direct: bool = False
-    knowledge: Knowledge = None
-
-    def __init__(self, knowledge: Knowledge):
-        super(AddAccountInformationTool, self).__init__(knowledge=knowledge)
-
-    def _run(self, username: str, credential: str, ctx: str) -> str:
-        """Save information on identified/compromised account, esp. if you a password or hash has been identified."""
-        self.knowledge.add_compromised_account(username, credential, ctx)
-        return f"Account {username} compromised with credential {credential} and context {ctx}"
-
-class AddEntityInformationInput(BaseModel):
-    entity: str = Field(description="the respective entity, e.g., an user or system or service.")
-    information: str = Field(description="the information about the respective entity")
-
-class AddEntityInformationTool(BaseTool):
-    name: str = "AddEntityInformationTool"
-    description: str = "Add information about an entity, e.g., user or system or service or vulnerability, that might be relevant for a latter attack."
-    args_schema: Type[BaseModel] = AddEntityInformationInput
-    return_direct: bool = False
-    knowledge: Knowledge = None
-
-    def __init__(self, knowledge: Knowledge):
-        super(AddEntityInformationTool, self).__init__(knowledge=knowledge)
-
-    def _run(self, entity: str, information: str) -> str:
-        """Note information for an entity (e.g., system or user or service or vulnerability) that might be relevant for a future attack."""
-        self.knowledge.add_entity_information(entity, information)
-        return f"Information for entity {entity} added: {information}"
-
-class PlanUpdateInput(BaseModel):
-    plan: str = Field(description="the new plan.")
-
-class PlanUpdateTool(BaseTool):
-    name: str = "PlanUpdateTool"
-    description: str = "Update the PTT/Plan with a new version incorporating all newly gathered information."
-    args_schema: Type[BaseModel] = PlanUpdateInput
-    return_direct: bool = False
-    planner: PlanTestTreeStrategy = None
-
-    def __init__(self, planner: PlanTestTreeStrategy):
-        super(PlanUpdateTool, self).__init__(planner=planner)
-
-    def _run(self, plan: str) -> str:
-        """Replace and Update the current plan with a new plan that incorporates all the new information."""
-        self.planner.set_new_plan(plan)
-        return f"Plan updated with {plan}"
-
 class AgentAnalyzer:
-    def __init__(self, llm, console:Console, logger):
-        self.llm = llm
+    def __init__(self, model, api_key, console:Console, logger):
+        self.model = model
+        self.api_key = api_key
         self.console = console
         self.logger = logger
         self.knowledge = Knowledge()
@@ -123,25 +84,18 @@ class AgentAnalyzer:
     def get_knowledge(self) -> str:
         return self.knowledge.get_knowledge()
 
-    def analyze_executor(self, task: Task, result:str, messages:List[str], planner: PlanTestTreeStrategy) -> None:
+    def analyze_executor(self, task: Task, result:str, history:List[dict], planner: PlanTestTreeStrategy) -> None:
         # output the result, then return it
         if result!= None and len(result) > 0:
             self.console.print(Panel(result, title="ExecutorAgent Output"))
-            messages.append(AIMessage(content=result))
         else:
             self.console.print(Panel('no result summary provided', title="ExecutorAgent Output"))
 
-        tools = [
-            AddAccountInformationTool(self.knowledge),
-            AddEntityInformationTool(self.knowledge),
-            PlanUpdateTool(planner)
-        ]
-        llm_with_tools = self.llm.bind_tools(tools)
-
-        # create a string -> tool mapping
-        mapping = {}
-        for tool in tools:
-            mapping[tool.__class__.__name__] = tool
+        tools = LLMFunctionMapping([
+            self.knowledge.add_compromised_account,
+            self.knowledge.add_entity_information,
+            planner.set_new_plan
+        ])
 
         prompt=f"""
 Update the task plan (see system message for details).
@@ -165,42 +119,49 @@ Always use the `PlanUpdateTool` to update the task plan. Do not include a title 
 Make sure to note down all compromised accounts and entities and update the plan before finishing the analysis. As final answer give a summary of the changes to the task plan.
 """
 
-        messages.append(HumanMessage(prompt))
+        history.append({ "role": "user", "content": prompt })
 
         # try to solve our sub-task
         round = 1
         while round <= MAX_ROUNDS:
 
             with self.console.status("[bold green]analyst: thinking") as status:
-                tik = datetime.datetime.now()
-                ai_msg = llm_with_tools.invoke(messages)
-                tok = datetime.datetime.now()
-                messages.append(ai_msg)
 
-            metadata = ai_msg.response_metadata
-            if hasattr(ai_msg, 'usage_metadata'):
-                metadata['usage_metadata'] = ai_msg.usage_metadata
-            self.console.log(str(metadata))
+                response_message, costs, duration = llm_tool_call(
+                    self.model,
+                    self.api_key,
+                    tools,
+                    history
+                )
 
-            self.logger.write_llm_call('analyst_next', prompt='',
+            history.append(response_message)
+            self.console.log(str(costs))
+
+            self.logger.write_llm_call('analyst_next', prompt=prompt,
                                 result={
-                                    'content': ai_msg.content,
-                                    'tool_calls': ai_msg.tool_calls
+                                    'content': response_message.content,
+                                    'tool_calls': response_message.tool_calls
                                 },
-                                costs=metadata,
-                                duration=(tok-tik).total_seconds())
+                                costs=costs,
+                                duration=duration)
 
-            if is_tool_call(ai_msg):
-                for tool_call in ai_msg.tool_calls:
-                    result = mapping[tool_call["name"]].invoke(tool_call["args"])
-                    self.console.print(Panel(Pretty(tool_call['args'] | {'result': result}), title=f"Tool {tool_call['name']}"))
-                    messages.append(ToolMessage(content=result, tool_call_id=tool_call['id']))
+            if is_tool_call(response_message):
+                for tool_call in response_message.tool_calls:
+                    function_name = tool_call.function.name
+                    args = json.loads(tool_call.function.arguments)
+
+                    result = tools.get_function(function_name)(**args)
+                    print(str(result))
+
+                    self.console.print(Panel(Pretty(args | {'result': result}), title=f"Tool {function_name}"))
+                    history.append({
+                        "role": "tool",
+                        "name": function_name,
+                        "content": str(result),
+                         "tool_call_id": tool_call.id
+                    })   
             else:
-                # workaround for gemini output
-                if 'type' in ai_msg.content[0] and ai_msg.content[0]['type'] == 'text':
-                    summary = ai_msg.content[0]['text']
-                else:
-                    summary = ai_msg.content
-                self.console.print(Panel(summary, title="Summary of updates"))
+                print(str(response_message))
+                self.console.print(Panel(response_message.content, title="Summary of updates"))
                 break
             round = round + 1

@@ -2,7 +2,6 @@ import asyncio
 import pathlib
 
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
 from common import Task, get_or_fail
 from executor import executor_run
 from ptt import PlanTestTreeStrategy
@@ -30,28 +29,6 @@ SCENARIO = (pathlib.Path(__file__).parent / "templates" / "scenario.md").read_te
 
 tools = [conn.execute_command]
 
-def setup_gemini_llms():
-    model = 'gemini-3-flash-preview'
-
-    llm_strategy = ChatGoogleGenerativeAI(
-        model=model,
-        max_tokens=None,
-    )
-
-    llm_with_tools = ChatGoogleGenerativeAI(
-        model=model,
-        max_tokens=None,
-    ).bind_tools(tools)
-
-    llm_summary = ChatGoogleGenerativeAI(
-        model=model,
-        max_tokens=None,
-    )
-
-    return llm_strategy, llm_with_tools, llm_summary
-
-llm_strategy, llm_with_tools, llm_summary = setup_gemini_llms()
-
 # TODO: we could use a cached (auto-generated) plan here instead of
 # creating a new one every run
 
@@ -64,10 +41,7 @@ async def main(conn:SSHConnection) -> None:
     task: Task = None
 
     knowledge = ""
-    summary = None
-
-#    analyser = InitialAnalyzer(llm_summary, console, logger)
-    analyser = AgentAnalyzer(llm_summary, console, logger)
+    analyzer = AgentAnalyzer(model, api_key, console, logger)
 
     # open SSH connection
     await conn.connect()
@@ -83,11 +57,11 @@ async def main(conn:SSHConnection) -> None:
 
         task = result.action
         console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title=f'Next Step ({task.mitre_attack_tactic}/{task.mitre_attack_technique})'))
-        knowledge = knowledge + "\n\n" + analyser.get_knowledge()
+        knowledge = knowledge + "\n\n" + analyzer.get_knowledge()
         result, messages = await executor_run(SCENARIO, task, knowledge, model, api_key, tools, console, logger)
 
         with console.status("[bold green]llm-call: analyze response and update plan") as status:
-            analyser.analyze_executor(task, result, messages, high_level_planner)
+            analyzer.analyze_executor(task, result, messages, high_level_planner)
             console.print(Panel(high_level_planner.get_plan(), title="Updated Plan"))
 
         with console.status("[bold green]llm-call: selecting next task") as status:
