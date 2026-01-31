@@ -118,6 +118,8 @@ Always use the `PlanUpdateTool` to update the task plan. Do not include a title 
 
 Make sure to note down all compromised accounts and entities and update the plan before finishing the analysis. As final answer give a summary of the changes to the task plan.
 """
+        
+        self.console.print(Pretty(history))
 
         history.append({ "role": "user", "content": prompt })
 
@@ -163,5 +165,6 @@ Make sure to note down all compromised accounts and entities and update the plan
             else:
                 print(str(response_message))
                 self.console.print(Panel(response_message.content, title="Summary of updates"))
-                break
+                return response_message.content
+
             round = round + 1

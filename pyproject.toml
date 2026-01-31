@@ -11,6 +11,7 @@ dependencies = [
     "structlog>=25.5.0",
     "asyncssh",
     "jinja2",
-    "litellm"
+    "litellm",
+    "numpydoc"
 ]
 requires-python = ">= 3.12"

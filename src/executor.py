@@ -17,13 +17,12 @@ def tool_calls_to_json(tool_calls):
 async def perform_tool_call(id, tool_name, function, args):
     result = await function(**args)
 
-    print(str(result))
-
+    # todo: we could actually capture stdout/stderr separately here, as well as finished
     return {
         'tool': tool_name,
         'cmd': args['command'],
         'finished': True,
-        'result': result.stdout,
+        'result': result,
         'tool_call_id': id
     }
 
