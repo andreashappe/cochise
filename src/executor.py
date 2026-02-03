@@ -2,7 +2,7 @@ import asyncio
 import json
 import pathlib
 
-from common import Task, is_tool_call, LLMFunctionMapping, llm_tool_call
+from common import Task, is_tool_call, LLMFunctionMapping, llm_tool_call, message_to_json
 from jinja2 import Template
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeElapsedColumn
@@ -58,7 +58,7 @@ async def executor_run(SCENARIO, task: Task, knowledge, model, api_key, tools, c
                 history
             )
             
-            history.append(response_message)
+            history.append(message_to_json(response_message))
 
         logger.write_llm_call('executor_next_cmds', prompt='',
                               result={
@@ -110,7 +110,6 @@ async def executor_run(SCENARIO, task: Task, knowledge, model, api_key, tools, c
                 console.log(str(response_message))
                 console.log("Empty response from executor LLM.. retrying")
             else:
-                history.append(response_message)
                 summary = response_message.content
                 break
         round = round + 1

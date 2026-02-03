@@ -6,72 +6,10 @@ from rich.pretty import Pretty
 from rich.panel import Panel
 
 from ptt import PlanTestTreeStrategy
-from common import Task, is_tool_call, LLMFunctionMapping, llm_tool_call
+from common import Task, is_tool_call, LLMFunctionMapping, llm_tool_call, message_to_json
+from knowledge import Knowledge
 
 MAX_ROUNDS = 10
-
-class Knowledge:
-    def __init__(self):
-        self.compromised_accounts = []
-        self.entity_information = []
-
-    def add_compromised_account(self, username, password, ctx):
-        """Save information on identified/compromised account, esp. if you a password or hash has been identified.
-
-        Parameters
-        ----------
-        username : str
-            the username of the identified or compromised account.
-        password : str
-            the account's password or password hash.
-        ctx : str
-            additional information/context on the compromised account.
-        """
-        self.compromised_accounts.append(
-            {
-                'username': username,
-                'password': password,
-                'context': ctx
-            }
-        )
-
-    def add_entity_information(self, entity, information):
-        """Note information for an entity (e.g., system or user or service or vulnerability) that might be relevant for a future attack.
-
-        Parameters
-        ----------
-        entity : str 
-            The respective entity, e.g., an user or system or service.
-        information : str
-            The information about the respective entity.
-        """ 
-        self.entity_information.append({
-            'entity': entity,
-            'information': information
-        })
-
-    def get_compromised_accounts_markdown_table(self) -> str:
-        result = "| Username | Password | Context |\n|----------|----------|---------|\n"
-        for account in self.compromised_accounts:
-            result += f"| {account['username']} | {account['password']} | {account['context']} |\n"
-        return result
-
-    def get_entity_information_markdown_table(self) -> str:
-        result = "| Entity | Information |\n|----------|---------|\n"
-        for entity in self.entity_information:
-            result += f"| {entity['entity']} | {entity['information']} |\n"
-        return result
-
-    def get_knowledge(self) -> str:
-        result = "# Existing Knowledge\n\n"
-        if len(self.compromised_accounts) > 0:
-            result += "## Compromised Accounts\n\n"
-            result += self.get_compromised_accounts_markdown_table()
-        if len(self.entity_information) > 0:
-            result += "## Entity Information\n\n"
-            result += self.get_entity_information_markdown_table()
-        result += "\n\n"
-        return result
 
 class AgentAnalyzer:
     def __init__(self, model, api_key, console:Console, logger):
@@ -136,7 +74,7 @@ Make sure to note down all compromised accounts and entities and update the plan
                     history
                 )
 
-            history.append(response_message)
+            history.append(message_to_json(response_message))
             self.console.log(str(costs))
 
             self.logger.write_llm_call('analyst_next', prompt=prompt,
@@ -153,7 +91,6 @@ Make sure to note down all compromised accounts and entities and update the plan
                     args = json.loads(tool_call.function.arguments)
 
                     result = tools.get_function(function_name)(**args)
-                    print(str(result))
 
                     self.console.print(Panel(Pretty(args | {'result': result}), title=f"Tool {function_name}"))
                     history.append({
@@ -164,7 +101,8 @@ Make sure to note down all compromised accounts and entities and update the plan
                     })   
             else:
                 print(str(response_message))
-                self.console.print(Panel(response_message.content, title="Summary of updates"))
-                return response_message.content
+                content = response_message.content if response_message.content is not None else ""
+                self.console.print(Panel(content, title="Summary of updates"))
+                return content
 
             round = round + 1
