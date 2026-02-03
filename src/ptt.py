@@ -27,10 +27,12 @@ class PlanFinished(BaseModel):
 class PlanResult(BaseModel):
     """Action to perform."""
 
-    action: Union[PlanFinished, Task] = Field(
-        description="Action to perform. If you want to respond to user, use Response. "
-        "If you need to further use tools to get the answer, use Plan."
-    )
+    action: Task = Field("Action to perform. If you want to respond to user, use Response. ")
+
+    #action: Union[PlanFinished, Task] = Field(
+    #    description="Action to perform. If you want to respond to user, use Response. "
+    #    "If you need to further use tools to get the answer, use Plan."
+    #)
 
 
 def convert_costs_to_json(costs):
