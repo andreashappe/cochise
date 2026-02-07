@@ -2,7 +2,8 @@ import asyncssh
 
 from asyncssh import SSHClientConnection, SSHCompletedProcess
 from dataclasses import dataclass
-from common import get_or_fail
+
+from cochise.common import get_or_fail
 
 @dataclass
 class SSHConnection:

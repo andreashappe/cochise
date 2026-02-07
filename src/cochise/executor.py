@@ -2,10 +2,11 @@ import asyncio
 import json
 import pathlib
 
-from common import Task, is_tool_call, LLMFunctionMapping, llm_tool_call, message_to_json
 from jinja2 import Template
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeElapsedColumn
+
+from cochise.common import Task, is_tool_call, LLMFunctionMapping, llm_tool_call, message_to_json
 
 def tool_calls_to_json(tool_calls):
     result = []

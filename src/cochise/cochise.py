@@ -2,17 +2,16 @@ import asyncio
 import pathlib
 
 from dotenv import load_dotenv
-from common import Task, get_or_fail
-from executor import executor_run
-from ptt import PlanTestTreeStrategy
-from kalissh import get_ssh_connection_from_env, SSHConnection
-
 from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
 
-from logger import Logger
-from agent_analzyer import AgentAnalyzer
+from cochise.agent_analzyer import AgentAnalyzer
+from cochise.common import Task, get_or_fail
+from cochise.executor import executor_run
+from cochise.logger import Logger
+from cochise.kalissh import get_ssh_connection_from_env, SSHConnection
+from cochise.ptt import PlanTestTreeStrategy
 
 # setup logggin console for now
 console = Console()

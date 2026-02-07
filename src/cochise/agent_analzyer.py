@@ -5,9 +5,9 @@ from rich.console import Console
 from rich.pretty import Pretty
 from rich.panel import Panel
 
-from ptt import PlanTestTreeStrategy
-from common import Task, is_tool_call, LLMFunctionMapping, llm_tool_call, message_to_json
-from knowledge import Knowledge
+from cochise.ptt import PlanTestTreeStrategy
+from cochise.common import Task, is_tool_call, LLMFunctionMapping, llm_tool_call, message_to_json
+from cochise.knowledge import Knowledge
 
 MAX_ROUNDS = 10
 
