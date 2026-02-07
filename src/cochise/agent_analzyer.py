@@ -90,6 +90,13 @@ Make sure to note down all compromised accounts and entities and update the plan
                     function_name = tool_call.function.name
                     args = json.loads(tool_call.function.arguments)
 
+                    # I sometimes get tool calls for the execute_command tool here, which is a pollution from the history, because the analyst agent should not call this tool. I will ignore these tool calls if they appear.
+                    if function_name == "execute_command":
+                        self.console.print("Pollution from history, got a tool call for execute_command, but this should not happen in the analyst agent. Ignoring this tool call.")
+                        break
+
+                    print(f"Tool call: {function_name} with args {args}")
+
                     result = tools.get_function(function_name)(**args)
 
                     self.console.print(Panel(Pretty(args | {'result': result}), title=f"Tool {function_name}"))
@@ -98,7 +105,11 @@ Make sure to note down all compromised accounts and entities and update the plan
                         "name": function_name,
                         "content": str(result),
                          "tool_call_id": tool_call.id
-                    })   
+                    })
+
+                    # also only allow a single plan update per round, because otherwise the agent might spam plan updates and it would be hard to keep track of the changes. So if we get a plan update, we will break the loop and start a new round, in which the agent can then react to the updated plan.
+                    if function_name == "set_new_plan":
+                        break
             else:
                 print(str(response_message))
                 content = response_message.content if response_message.content is not None else ""

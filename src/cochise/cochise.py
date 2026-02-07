@@ -61,7 +61,11 @@ async def main(conn:SSHConnection) -> None:
 
         with console.status("[bold green]llm-call: analyze response and update plan") as status:
             analyzer.analyze_executor(task, result, messages, high_level_planner)
-            console.print(Panel(high_level_planner.get_plan(), title="Updated Plan"))
+            try:
+                console.print(Panel(high_level_planner.get_plan(), title="Updated Plan"))
+            except Exception as e:
+                console.print(f"Error while printing updated plan: {e}")
+                console.print(high_level_planner.get_plan())
 
         with console.status("[bold green]llm-call: selecting next task") as status:
             result = high_level_planner.select_next_task(knowledge)
