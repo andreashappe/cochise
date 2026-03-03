@@ -6,9 +6,11 @@ So basically, I use LLMs to hack Microsoft Active Directory networks.. what coul
 
 This is a prototype that I wrote to evaluate the capabilities of LLMs for performing Assumed Breach penetration-testing against Active Directory networks. I am using the [GOAD](https://github.com/Orange-Cyberdefense/GOAD) testbed to provide my target environment, place a [Kali Linux](https://www.kali.org/) VM into the testbed, and then direct my Prototype `cochise` to hack it.
 
-Results using OpenAI's o1 or Google's Gemini-2.5-Flash have been impressive (or disturbing, depending whom you're asking). The LLMs are able to compromise users, escalate privileges, and even perform lateral movement within the network. More details [can be found in the paper](https://arxiv.org/pdf/2502.04227), but in short, o1 was able to fully-compromise most users  (shown in the following table in the `Results > Users` column) while costing around $11/hour. Gemini-2.5-flash was worse, but only costs around $2/hour. DeepSeek-V3 was not able to compromise many accounts (yet), but it's costs was around 0.1$/hour, so it might be worth waiting for it to improve.
+Results using OpenAI's o1 or Google's Gemini-2.5-Flash have been impressive (or disturbing, depending whom you're asking). The LLMs are able to compromise users, escalate privileges, and even perform lateral movement within the network. More details [can be found in the paper](https://arxiv.org/pdf/2502.04227), but in short, o1 was able to fully-compromise the most users (also shown in the following table):
 
 ![Results from my initial testruns](money-shot-v1.png)
+
+Using a newer version of the prototype currently within the `switch-to-litellm` branch, using `gemini-3-flash-preview` is commonly able to fully compromise, i.e., domain dominance, two out of the three domains for a cost of less than a single dollar. This is now becoming disturbing.
 
 You can find many screenshots of the tool in action [within this github repo](https://github.com/andreashappe/cochise/tree/main/examples/screenshots). My research paper has been accepted to the [TOSEM journal](https://dl.acm.org/doi/10.1145/3766895), and of course I am always happy for citations:
 
@@ -28,6 +30,8 @@ month = sep,
 keywords = {Security Capability Evaluation, Large Language Models, Enterprise Networks}
 }
 ```
+
+We also provide a reproducibility report containing install instructions at https://arxiv.org/abs/2603.01789 .
 
 ## What's included in this prototype?
 
