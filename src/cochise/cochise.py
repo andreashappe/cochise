@@ -18,7 +18,6 @@ console = Console()
 
 # setup configuration from environment variables
 load_dotenv()
-get_or_fail("OPENAI_API_KEY") # langgraph will use this env variable itself
 conn = get_ssh_connection_from_env()
 
 logger = Logger()
