@@ -6,7 +6,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
 
-from cochise.agent_analzyer import AgentAnalyzer
+from cochise.agent_analyzer import AgentAnalyzer
 from cochise.common import Task, get_or_fail
 from cochise.executor import executor_run
 from cochise.logger import Logger
@@ -38,8 +38,8 @@ high_level_planner = PlanTestTreeStrategy(model, api_key, SCENARIO, logger, plan
 async def main(conn:SSHConnection) -> None:
     task: Task = None
 
-    knowledge = ""
     analyzer = AgentAnalyzer(model, api_key, console, logger)
+    knowledge = ""
 
     # open SSH connection
     await conn.connect()
@@ -55,7 +55,7 @@ async def main(conn:SSHConnection) -> None:
 
         task = result.action
         console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title=f'Next Step ({task.mitre_attack_tactic}/{task.mitre_attack_technique})'))
-        knowledge = knowledge + "\n\n" + analyzer.get_knowledge()
+        knowledge = analyzer.get_knowledge()
         result, messages = await executor_run(SCENARIO, task, knowledge, model, api_key, tools, console, logger)
 
         with console.status("[bold green]llm-call: analyze response and update plan") as status:

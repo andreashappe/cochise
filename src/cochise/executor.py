@@ -8,13 +8,6 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeEla
 
 from cochise.common import Task, is_tool_call, LLMFunctionMapping, llm_tool_call, message_to_json
 
-def tool_calls_to_json(tool_calls):
-    result = []
-    if tool_calls is not None:
-        for i in tool_calls:
-            result.append({"name": i.function.name, "arguments": i.function.arguments})
-    return result
-
 async def perform_tool_call(id, tool_name, function, args):
     result = await function(**args)
 

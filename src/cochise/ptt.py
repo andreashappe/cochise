@@ -1,16 +1,12 @@
-import datetime
 import pathlib
-import litellm
 
-from dataclasses import asdict, dataclass
 from jinja2 import Template
 from pydantic import BaseModel, Field
-from typing import Any, Type
 
 from cochise.common import Task
 from cochise.logger import Logger
+from cochise.common import llm_typed_call
 
-@dataclass
 class UpdatedPlan(BaseModel):
     """This is the updated plan that contains all proposed changes."""
 
@@ -18,12 +14,10 @@ class UpdatedPlan(BaseModel):
         description="the newly updated hierchical plan."
     )
 
-@dataclass
 class PlanFinished(BaseModel):
     """Response to user."""
     response: str
 
-@dataclass
 class PlanResult(BaseModel):
     """Action to perform."""
 
@@ -33,55 +27,6 @@ class PlanResult(BaseModel):
     #    description="Action to perform. If you want to respond to user, use Response. "
     #    "If you need to further use tools to get the answer, use Plan."
     #)
-
-
-def convert_costs_to_json(costs):
-    result = costs.__dict__
-    if result["prompt_tokens_details"] is not None:
-        result["prompt_tokens_details"] = costs.prompt_tokens_details.__dict__
-    if result["completion_tokens_details"] is not None:
-        result["completion_tokens_details"] = costs.completion_tokens_details.__dict__
-    return result
-
-
-def llm_typed_call[T: BaseModel](
-    model: str,
-    api_key: str,
-    messages: list[dict[str, Any]],
-    id: str,
-    type: Type[T] | None = None,
-) -> T:
-    """make a simple LLM call without any response format parsing"""
-
-    tik = datetime.datetime.now()
-    response = litellm.completion(
-        model=model,
-        messages=messages,
-        api_key=api_key,
-        response_format=type,
-    )
-    tok = datetime.datetime.now()
-
-    if len(response.choices) != 1:
-        raise RuntimeError(f"Expected exactly one LLM choice, but got {len(response.choices)}.")
-
-    # output tokens costs
-    costs = convert_costs_to_json(response.usage)
-    duration = (tok - tik).total_seconds()
-
-    if type is not None:
-        result = type.model_validate_json(response.choices[0].message.content)
-        content = asdict(result)
-        return result, duration, costs
-    else:
-        result = response.choices[0].message
-        content = {
-            "content": result.content,
-            "reasoning_content": result.reasoning_content
-            if hasattr(result, "reasoning_content")
-            else None,
-        }
-        return content, duration, costs
 
 
 TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"

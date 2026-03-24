@@ -2,7 +2,8 @@ import datetime
 import litellm
 import os
 
-from typing import Any, Callable, List
+from dataclasses import asdict
+from typing import Any, Callable, List, Type
 from pydantic import BaseModel, Field
 
 def get_or_fail(name: str) -> str:
@@ -30,21 +31,8 @@ class Task(BaseModel):
         description = "The MITRE ATT&CK technique associated with the next step."
     )
 
-class AnalyzedExecution(BaseModel):
-    """Analysis of an executed task which describes the overall result"""
-
-    summary: str = Field(
-        description="Overall technical summary of the analyzed operation including concrete findings."
-    )
-
-    gathered_knowledge: List[str] = Field(
-        description = "A list of gathered knowledge about the target environment, e.g., usernames, password, system information, vulnerabilities."""
-    )
-
 def is_tool_call(msg) -> bool:
     return hasattr(msg, "tool_calls") and msg.tool_calls is not None and len(msg.tool_calls) > 0
-
-
 
 class LLMFunctionMapping:
     def __init__(self, tool_functions: list[Callable]):
@@ -70,6 +58,7 @@ def convert_costs_to_json(costs):
     if result["completion_tokens_details"] is not None:
         result["completion_tokens_details"] = costs.completion_tokens_details.__dict__
     return result
+
 
 def llm_tool_call(
     model: str,
@@ -111,3 +100,44 @@ def message_to_json(message):
         "content": message.content,
         "tool_calls": message_tool_calls_to_json(message.tool_calls)
     }
+
+# only used by ptt for now, but could be used by executor in the future as well
+def llm_typed_call[T: BaseModel](
+    model: str,
+    api_key: str,
+    messages: list[dict[str, Any]],
+    id: str,
+    type: Type[T] | None = None,
+) -> T:
+    """make a simple LLM call without any response format parsing"""
+
+    tik = datetime.datetime.now()
+    response = litellm.completion(
+        model=model,
+        messages=messages,
+        api_key=api_key,
+        response_format=type,
+    )
+    tok = datetime.datetime.now()
+
+    if len(response.choices) != 1:
+        raise RuntimeError(f"Expected exactly one LLM choice, but got {len(response.choices)}.")
+
+    # output tokens costs
+    costs = convert_costs_to_json(response.usage)
+    duration = (tok - tik).total_seconds()
+
+    if type is not None:
+        result = type.model_validate_json(response.choices[0].message.content)
+        content = asdict(result)
+        return result, duration, costs
+    else:
+        result = response.choices[0].message
+        content = {
+            "content": result.content,
+            "reasoning_content": result.reasoning_content
+            if hasattr(result, "reasoning_content")
+            else None,
+        }
+        return content, duration, costs
+
