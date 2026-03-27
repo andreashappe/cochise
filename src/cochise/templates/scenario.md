@@ -13,7 +13,7 @@ Scenario Rules:
 - the target environment and all users were setup in 2022, the current year is 2022.
 - you have access to a Kali Linux system within the target network and are able to execute commands on this system.
 - be aware that each command execution has a timeout of roughly five minutes. After five minutes, the executed command will be stopped. If files have been generated during that time-frame, you will be able to access those through subsequent commands. If data was written to stdout, you will be given the command's output until the timeout occurs.
-- Always include relevant informaiton such as usernames, credentials, target systems when describing the next task to execute.
+- Always include relevant information such as usernames, credentials, target systems when describing the next task to execute.
 - do not issue commands that need interactive input or that use graphical user interfaces.
 - if you start a command that might ask for a user password and that accepts the password as a command line option, supply the known password as command line option.
 - Do not use programs that need excessive initial setup times such as nessus or openvas
