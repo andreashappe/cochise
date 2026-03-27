@@ -18,6 +18,17 @@ Include relevant information for the selected task as its context. This includes
 detailed information such as usernames, credentials, etc. You are allowed to
 gather this information from throughout the whole task plan.  Do only include information
 that is specific to our objective, do not generic information. Be very concise.
+
+Note down findings and potential leads that might be relevant for future tasks.
+This can include, e.g., potential attack vectors, credentials, or other information
+that might be useful for future tasks. Always note down findings and potential leads,
+even if they do not seem relevant for the current task at hand, as they might become
+relevant for future tasks.
+
+You can revise the plan based on new information and failed attempts to execute tasks.
+This can help to overcome potential issues with the initial plan and adapt to new
+information that was not available when the initial plan was created. Perform this every
+3-5 rounds.
 """
 
 TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
@@ -32,6 +43,22 @@ class Planner:
         self.executor_factory = executor_factory
         self.logger = logger
         self.console = console
+
+    async def revise_plan(self, new_plan:str) -> str:
+        """Revise the current plan based on new information and failed attempts to execute tasks. This can help to overcome potential issues with the initial plan and adapt to new information that was not available when the initial plan was created.
+        
+        Parameters
+        ----------
+        new_plan : str
+        The revised plan that should be used for the next iteration of task selection and execution.
+        
+        Returns
+        -------
+        str
+        The revised plan that should be used for the next iteration of task selection and execution.
+        """
+        self.console.print(Panel(new_plan, title="Revised Plan"))
+        return new_plan
 
     def create_initial_plan(self) -> str:
         template_vars = {
@@ -58,11 +85,11 @@ class Planner:
         plan = result["content"]
         print(str(costs))
 
-        #self.logger.write_llm_call('strategy_update', 
-        #                            prompt,
-        #                            result['content'],
-        #                            costs,
-        #                            duration)
+        self.logger.write_llm_call('planner_initial_plan', 
+                                    prompt,
+                                    result['content'],
+                                    costs,
+                                    duration)
         return plan
     
     async def engage(self) -> None:
@@ -76,32 +103,31 @@ class Planner:
             plan = self.create_initial_plan()
             self.console.print(Panel(plan, title="Initial Plan"))
 
-        # NOTE/TODO: using "until you have compromised all domains" would trigger ethical filtering with gemini-3-flash-lite
+        # TODO: maybe add information about how to structure the PTT here?
         history = [
             { "role": "system", "content": self.scenario },
+            { "role": "user", "content": "Create me an initial plan to achieve the overall objective. Break down the overall objective into smaller tasks and subtasks. Do not include generic steps, only very specific ones that are directly relevant for achieving the overall objective. Be concise." },
             { "role": "assistant", "content": f"# Initial Plan\n\n{plan}" },
-            #{ "role": "user", "content": f"don't stop until you have become domain admin for all domains! Note down findings." }, # triggers refuals
-            #{ "role": "user", "content": PROMPT }
+            { "role": "user", "content": PROMPT } # always finish with user prompt
         ]
-
 
         while(True):
 
             self.console.print(Panel(Pretty(history)))
-            # TODO: add revise-prompt somehwere here to allow the planner to revise the plan based on the current state of knowledge and previous attempts to execute tasks. This can help to overcome potential issues with the initial plan and adapt to new information that was not available when the initial plan was created.
+            # TODO: add revise-prompt somewhere here to allow the planner to revise the plan based on the current state of knowledge and previous attempts to execute tasks. This can help to overcome potential issues with the initial plan and adapt to new information that was not available when the initial plan was created.
+            # TODO: maybe force it to do this every x steps or after a failed attempt to execute a task?
 
             # prepare new executor for this round. This should signalize that the executor
             # always starts from scratch and does not have any memory of previous rounds,
             # but it will have access to the updated knowledge base which it can use to solve
             # the task at hand.
-            executor = self.executor_factory.build(knowledge, [])
+            executor = self.executor_factory.build(knowledge)
             tool_mapping = LLMFunctionMapping([
                 executor.perform_task,
+                self.revise_plan,
                 knowledge.add_compromised_account,
                 knowledge.add_entity_information
             ])
-
-            print(str(tool_mapping))
 
             response_message, costs, duration = llm_tool_call(
                 self.model,
@@ -110,6 +136,11 @@ class Planner:
                 history
             )
             history.append(message_to_json(response_message))
+            self.logger.write_llm_call('planner_task_selection', 
+                                        '',
+                                        response_message,
+                                        costs,
+                                        duration)
 
             if is_tool_call(response_message):
                 for tool_call in response_message.tool_calls:
@@ -119,10 +150,14 @@ class Planner:
                     self.console.print(Panel(Pretty(args), title=f"Calling tool {function_name} with arguments"))
                     function_to_call = tool_mapping.get_function(function_name)
                     print(str(function_to_call))
-                    result, new_knowledge = await function_to_call(**args)
 
-                    # add new knowledge to high-level knowledge base, this will be used in the next iteration of the loop when the LLM selects the next task to perform
-                    knowledge.merge(new_knowledge)
+                    raw_result = await function_to_call(**args)
+                    if isinstance(raw_result, tuple):
+                        result, new_knowledge = raw_result
+                        knowledge.merge(new_knowledge)
+                    else:
+                        result = raw_result
+                        new_knowledge = Knowledge()
 
                     self.console.print(Panel(Pretty(result), title=f"Tool Result for {function_name}"))
                     self.console.print(Panel(Pretty(new_knowledge.get_knowledge()), title="New Knowledge"))
@@ -134,41 +169,9 @@ class Planner:
                         "tool_call_id": tool_call.id
                     })
             else:
-                history.append(message_to_json(response_message))
-
-
-    #print(str(response_message))
-
-
-    #result = high_level_planner.select_next_task(history, knowledge)
-    #print(str(result))
-
-    # work and update the plan until we have no tasks left, i.e., the problem is solved
-#    while isinstance(result.action, Task):
-#
-#        console.print(Panel(Pretty(history)))
-#
-#        task = result.action
-#        console.print(Panel(f"# Next Step\n\n{task.next_step}\n\n# Context\n\n{task.next_step_context}", title=f'Next Step ({task.mitre_attack_tactic}/{task.mitre_attack_technique})'))
-#        knowledge = analyzer.get_knowledge()
-#        result, messages = await executor_run(SCENARIO, task, knowledge, model, api_key, tools, console, logger)
-#        console.print(Panel(result, title=f'Result of executing task: {task.next_step}'))
-#
-#        history.append(
-#            {"role": "assistant", "content": result }
-#        )
-#
-#        #with console.status("[bold green]llm-call: analyze response and update plan") as status:
-#        #    analyzer.analyze_executor(task, result, messages, high_level_planner)
-#        #    try:
-#        #        console.print(Panel(high_level_planner.get_plan(), title="Updated Plan"))
-#        #    except Exception as e:
-#        #        console.print(f"Error while printing updated plan: {e}")
-#        #        console.print(high_level_planner.get_plan())
-#        #
-#        with console.status("[bold green]llm-call: selecting next task") as status:
-#            result = high_level_planner.select_next_task(history, knowledge)
-#        print(str(result))
-#
-#    logger.write_line(f"run-finished; result: {str(result)}")
-#    console.print(Panel(Pretty(result.action), title="Hacking Run finished!"))
+                self.console.print(Panel("LLM did not call a tool, but returned a message. This should not happen, because the planner should only select a task to perform and call the respective tool for that. You might want to check if the LLM is able to call tools correctly.", title="LLM Response without Tool Call"))
+                self.console.print(Panel(Pretty(response_message.content), title="LLM Response Content"))
+                history.append({
+                    "role": "user",
+                    "content": "please continue" 
+                })

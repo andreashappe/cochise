@@ -12,7 +12,7 @@ from cochise.knowledge import Knowledge
 async def perform_tool_call(id, tool_name, function, args):
     result = await function(**args)
 
-    # todo: we could actually capture stdout/stderr separately here, as well as finished
+    # TODO: we could actually capture stdout/stderr separately here, as well as finished
     return {
         'tool': tool_name,
         'cmd': args['command'] if 'command' in args else tool_name,
@@ -34,8 +34,7 @@ class ExecutorFactory:
         self.console = console
         self.configured_tools = configured_tools
 
-    # TODO: add the additional_tools (knowledge tools)
-    def build(self, system_knowledge, additional_tools):
+    def build(self, system_knowledge):
         return Executor(self.model, self.api_key, self.scenario, self.configured_tools, system_knowledge, self.console, self.logger)
 
 class Executor:
@@ -83,7 +82,7 @@ class Executor:
             
         history = [
             { "role": "system", "content": self.scenario },
-            { "role": "user", "content": prompt }
+            { "role": "user", "content": prompt + "\n\n\n" + 'always note down findings and potential leads' },
         ]
 
         knowledge = Knowledge()
@@ -154,6 +153,10 @@ class Executor:
                             "content": result['result'],
                         })
             else:
+                history.append({
+                    "role": "user",
+                    "content": "please continue" 
+                })
                 # the AI message has not tool_call -> this was some sort of result then
                 if response_message.content == '':
                     self.console.log(str(response_message))
@@ -175,8 +178,15 @@ class Executor:
                 history,
                 "executor_no_summary",
             ) 
+            self.logger.write_llm_call('executor_no_summary', prompt='',
+                    result=result,
+                    costs=costs,
+                    duration=duration)
+            self.console.log(str(costs))
 
             self.console.log("result: " + str(result))
             summary = result["content"]
 
+        print(str(summary))
+        print(f"summary: {summary}")
         return summary + "\n\n\n" + knowledge.get_knowledge(), knowledge

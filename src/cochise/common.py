@@ -75,12 +75,35 @@ def message_tool_calls_to_json(tool_calls):
             })
     return result
 
+#def message_to_json(message):
+#    return {
+        #"role": message.role,
+        #"content": message.content,
+        #"tool_calls": message_tool_calls_to_json(message.tool_calls)
+    #}
+
 def message_to_json(message):
-    return {
-        "role": message.role,
-        "content": message.content,
-        "tool_calls": message_tool_calls_to_json(message.tool_calls)
-    }
+    result = {"role": message.role}
+
+    if message.content:
+        result["content"] = message.content
+    else:
+        result["content"] = ""
+
+    if message.tool_calls:
+        result["tool_calls"] = [
+            {
+                "id": tc.id,
+                "type": "function",
+                "function": {
+                    "name": tc.function.name,
+                    "arguments": tc.function.arguments,
+                },
+            }
+            for tc in message.tool_calls
+        ]
+
+    return result
 
 # only used by ptt for now, but could be used by executor in the future as well
 def llm_typed_call[T: BaseModel](

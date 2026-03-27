@@ -24,9 +24,6 @@ async def main() -> None:
     logger = Logger()
     logger.write_line("starting testrun")
 
-
-    tools = [conn.execute_command]
-
     model = get_or_fail("LITELLM_MODEL")
     api_key = get_or_fail("LITELLM_API_KEY")
 
@@ -34,6 +31,7 @@ async def main() -> None:
     await conn.connect()
 
     # setup cochise..
+    tools = [conn.execute_command]
     executor_factory = ExecutorFactory(model, api_key, SCENARIO, tools, logger, console)
     planner = Planner(model, api_key, SCENARIO, executor_factory, logger, console)
 
