@@ -3,7 +3,22 @@ class Knowledge:
         self.compromised_accounts = []
         self.entity_information = []
 
-    def add_compromised_account(self, username:str, password:str, additional_information:str):
+    def merge(self, other_knowledge):
+        """Merge another Knowledge instance into this one, combining compromised accounts and entity information.
+
+        Parameters
+        ----------
+        other_knowledge : Knowledge
+            Another Knowledge instance whose information should be merged into this one.
+        """
+
+        if not other_knowledge:
+            return
+
+        self.compromised_accounts.extend(other_knowledge.compromised_accounts)
+        self.entity_information.extend(other_knowledge.entity_information)
+
+    async def add_compromised_account(self, username:str, password:str, additional_information:str):
         """Save information on identified/compromised account, esp. if you a password or hash has been identified.
 
         Parameters
@@ -22,8 +37,9 @@ class Knowledge:
                 'context': additional_information
             }
         )
+        return f"noted compromised account {username} with context: {additional_information}"
 
-    def add_entity_information(self, entity:str, information:str):
+    async def add_entity_information(self, entity:str, information:str):
         """Note information for an entity (e.g., system or user or service or vulnerability) that might be relevant for a future attack.
 
         Parameters
@@ -37,6 +53,7 @@ class Knowledge:
             'entity': entity,
             'information': information
         })
+        return f"noted information for entity {entity}: {information}"
 
     def get_compromised_accounts_markdown_table(self) -> str:
         result = "| Username | Password | Context |\n|----------|----------|---------|\n"

@@ -12,6 +12,9 @@ class Logger:
         current_timestamp = datetime.now()
         formatted_timestamp = current_timestamp.strftime('%Y%m%d-%H%M%S')
 
+        # crate log directory if it doesn't exist
+        Path("logs").mkdir(exist_ok=True)
+
         structlog.configure(
             processors=[
                 structlog.processors.add_log_level,
