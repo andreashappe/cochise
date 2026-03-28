@@ -88,7 +88,9 @@ class Executor:
         knowledge = Knowledge()
         tools = LLMFunctionMapping(self.configured_tools + [
             knowledge.add_compromised_account,
-            knowledge.add_entity_information
+            knowledge.update_compromised_account,
+            knowledge.add_entity_information,
+            knowledge.update_entity_information
         ])
 
         # try to solve our sub-task
@@ -187,6 +189,5 @@ class Executor:
             self.console.log("result: " + str(result))
             summary = result["content"]
 
-        print(str(summary))
         print(f"summary: {summary}")
         return summary + "\n\n\n" + knowledge.get_knowledge(), knowledge
