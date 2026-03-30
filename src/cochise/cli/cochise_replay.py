@@ -44,9 +44,7 @@ def analyze_replay(console, file, output_every_x_ptt=1):
             case 'executor_cmd':
                 console.print(Panel(result, title=f"Result for {j['cmd']}"), markup=False)
 
-
-if __name__=='__main__':
-
+def main():
     console = Console()
 
     parser=argparse.ArgumentParser()
@@ -55,3 +53,6 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     analyze_replay(console, args.input, args.output_every_x_ptt)
+
+if __name__=='__main__':
+    main()
