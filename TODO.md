@@ -1,3 +1,11 @@
+# next steps / TODO bis Rio
+
+- [ ] work on logging
+- [ ] implement time limit
+- [ ] implement trajectory compression based on used tokens
+- [ ] retest replayer
+- [ ] retest analysis tool -> should be able to count/show compromised accounts + tokens
+
 # Ideas
 
 - should we focus on 500 loc? Or can we do more (600-ish)? benefit
