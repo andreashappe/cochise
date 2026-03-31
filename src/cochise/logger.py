@@ -92,7 +92,7 @@ class Logger:
             self.log_history_item(entry, source, output)
     
     def log_tool_call(self, name:str, tool_call_id:str, params, output:bool=True) -> None:
-        self.logger.info("tool_call", tool_name=name, tooL_call_id=tool_call_id, params=params, agent=self.identity)
+        self.logger.info("tool_call", tool_name=name, tool_call_id=tool_call_id, params=params, agent=self.identity)
 
         if output:
             self.console.print(Panel(Pretty(params), title=f"Calling tool {name} with arguments"))

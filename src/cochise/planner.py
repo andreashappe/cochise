@@ -10,6 +10,7 @@ from cochise.common import LLMFunctionMapping, is_tool_call, llm_tool_call, llm_
 from cochise.knowledge import Knowledge
 from cochise.logger import Logger
 
+# TODO: move this into a template
 PLANNER_PROMPT="""
 You are required to strategize and create a tree-structured task plan that will allow to successfully solve the objective.
 Workers will follow your task plan to complete the objective, and will report after each finished task back to you.
@@ -46,6 +47,7 @@ When creating the task plan you must follow the following requirements:
 Provide the hierarchical task plan as answer. Do not include a title or an appendix.
 """
 
+# TODO: move this into a template
 PROMPT="""
 From all the tasks, identify those that can be performed next. Analyze those
 tasks and decide which one should be performed next based on their likelihood to
@@ -153,7 +155,7 @@ class Planner:
                 history = [
                     { "role": "system", "content": self.scenario },
                     { "role": "user", "content": "Create me an initial plan to achieve the overall objective. Break down the overall objective into smaller tasks and subtasks. Do not include generic steps, only very specific ones that are directly relevant for achieving the overall objective. Be concise." },
-                    { "role": "assistant", "content": f"# Initial Plan\n\n{plan}\n\n\n # Gathered Findings\n\n#{knowledge.get_knowledge()}" },
+                    { "role": "assistant", "content": f"# Initial Plan\n\n{plan}\n\n\n # Gathered Findings\n\n{knowledge.get_knowledge()}" },
                     { "role": "user", "content": PROMPT } # always finish with user prompt
                 ]
                 self.logger.log_append_to_history(history, "manual", False)
@@ -192,7 +194,7 @@ class Planner:
                     self.logger.log_tool_call(function_name, tool_call.id, args)
                     function_to_call = tool_mapping.get_function(function_name)
 
-                    # TODO: This feels dirty.
+                    # this could be cleaner:
                     # set tool call id in the executor logger, just in case the executor is run
                     executor.setLogger(Logger(self.logger.console, tool_call.id, self.logger.logger))
 
