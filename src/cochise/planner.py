@@ -7,6 +7,7 @@ from rich.pretty import Pretty
 
 from cochise.common import LLMFunctionMapping, is_tool_call, llm_tool_call, llm_typed_call, message_to_json
 from cochise.knowledge import Knowledge
+from cochise.logger import Logger
 
 PLANNER_PROMPT="""
 You are required to strategize and create a tree-structured task plan that will allow to successfully solve the objective.
@@ -127,13 +128,12 @@ class Planner:
         # TODO: add a time-based cut-off, e.g., it should stop after 2 hours
         while(True):
 
+            # TODO: switch to a token usage based scheme
             if counter % 5 == 0:
-                # TODO: make this cleaner and convert this to the new logging scheme
-                # TODO: also switch to a token usage based scheme
-                # compact history every 10 rounds
-                history.append(
-                    { "role": "user", "content": PLANNER_PROMPT }
-                )
+                msg = { "role": "user", "content": PLANNER_PROMPT }
+
+                history.append(msg)
+                self.logger.log_append_to_history(msg, "manual", False)
 
                 result, duration, costs = llm_typed_call(
                     self.model,
@@ -141,14 +141,10 @@ class Planner:
                     history,
                     "compact history",
                 ) 
-                self.logger.write_llm_call('compact_history', prompt=PLANNER_PROMPT,
-                        result=result,
-                        costs=costs,
-                        duration=duration)
 
                 plan = result["content"]
-                self.console.log(str(costs))
-                self.console.print(Panel(plan, title="new plan"))
+                self.logger.log_llm_call('compact_history', plan, costs, duration, output=True)
+                self.logger.console.print(Panel(plan, title="new plan"))
 
                 history = [
                     { "role": "system", "content": self.scenario },
@@ -156,6 +152,7 @@ class Planner:
                     { "role": "assistant", "content": f"# Initial Plan\n\n{plan}\n\n\n # Gathered Findings\n\n#{knowledge.get_knowledge()}" },
                     { "role": "user", "content": PROMPT } # always finish with user prompt
                 ]
+                self.logger.log_append_to_history(history, "manual", False)
 
             # prepare new executor for this round. This should signalize that the executor
             # always starts from scratch and does not have any memory of previous rounds,
@@ -190,6 +187,10 @@ class Planner:
 
                     self.logger.log_tool_call(function_name, tool_call.id, args)
                     function_to_call = tool_mapping.get_function(function_name)
+
+                    # TODO: This feels dirty.
+                    # set tool call id in the executor logger, just in case the executor is run
+                    executor.setLogger(Logger(self.logger.console, tool_call.id, self.logger.logger))
 
                     # call the method
                     raw_result = await function_to_call(**args)

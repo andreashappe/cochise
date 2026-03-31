@@ -1,4 +1,3 @@
-import cmd
 from types import NoneType
 
 from litellm import Message
@@ -15,54 +14,60 @@ from cochise.common import message_to_json
 class Logger:
 
     logger = None
+    identity= 'main'
 
-    def __init__(self, console:Console):
+    def __init__(self, console:Console, identity:str=None, logger=None):
 
         self.console = console
 
-        # setup structured logging
-        current_timestamp = datetime.now()
-        formatted_timestamp = current_timestamp.strftime('%Y%m%d-%H%M%S')
+        if identity is not None and logger is not None:
+            # this happens for sub-loggers
+            self.identity = identity
+            self.logger = logger
+        else:
+            # setup structured logging
+            current_timestamp = datetime.now()
+            formatted_timestamp = current_timestamp.strftime('%Y%m%d-%H%M%S')
 
-        # crate log directory if it doesn't exist
-        Path("logs").mkdir(exist_ok=True)
+            # crate log directory if it doesn't exist
+            Path("logs").mkdir(exist_ok=True)
 
-        structlog.configure(
-            processors=[
-                structlog.processors.add_log_level,
-                structlog.processors.StackInfoRenderer(),
-                structlog.dev.set_exc_info,
-                structlog.processors.TimeStamper(fmt="iso"),
-                structlog.processors.JSONRenderer(),
-            ],
-            logger_factory=structlog.WriteLoggerFactory(
-                file=Path(f"logs/run-{formatted_timestamp}").with_suffix(".json").open("wt")
+            structlog.configure(
+                processors=[
+                    structlog.processors.add_log_level,
+                    structlog.processors.StackInfoRenderer(),
+                    structlog.dev.set_exc_info,
+                    structlog.processors.TimeStamper(fmt="iso"),
+                    structlog.processors.JSONRenderer(),
+                ],
+                logger_factory=structlog.WriteLoggerFactory(
+                    file=Path(f"logs/run-{formatted_timestamp}").with_suffix(".json").open("wt")
+                )
             )
-        )
 
-        self.logger = structlog.get_logger()
+            self.logger = structlog.get_logger()
 
     def log_data(self, name:str, data:str|dict|NoneType=None, output:bool=True) -> None:
         if isinstance(data, dict):
             if output:
                 tmp = "\n".join([f"{k}: {v}" for k, v in data.items()])
                 self.console.print(Panel(tmp, title=name))
-            self.logger.info(name, **data)
+            self.logger.info(name, agent=self.identity,**data)
         elif isinstance(data, NoneType):
             if output:
                 self.console.log(name)
-            self.logger.info(name)
+            self.logger.info(name, agent=self.identity)
         else:
             if output:
                 self.console.log(f"{name}: {data}")
-            self.logger.info(name, { "value": data })
+            self.logger.info(name, { "value": data }, agent=self.identity)
 
     def log_llm_call(self, name:str, result, costs: dict, duration:float, output:bool=True) -> None:
 
         if isinstance(result, Message):
             result = message_to_json(result)
 
-        self.logger.info(name, costs=costs, duration=duration, result=result)
+        self.logger.info(name, costs=costs, duration=duration, result=result, agent=self.identity)
         if output:
             # IDEA: make this prettier in the future and maybe add accounting?
             # IDEA: maybe also only output costs/accumulated costs?
@@ -72,7 +77,9 @@ class Logger:
             self.console.log(str(costs))
 
     def log_history_item(self, entry, source, output) -> None:
-        self.logger.info("history_append", source=source, content=entry)
+        if isinstance(entry, Message):
+            entry = message_to_json(entry)
+        self.logger.info("history_append", source=source, content=entry, agent=self.identity)
         if output:
             self.console.print(Panel(Pretty(entry), title=f"Appended ({source.capitalize()}) Message To History"))
 
@@ -85,23 +92,14 @@ class Logger:
             self.log_history_item(entry, source, output)
     
     def log_tool_call(self, name:str, tool_call_id:str, params, output:bool=True) -> None:
-        self.logger.info("tool_call", tool_name=name, tooL_call_id=tool_call_id, params=params)
+        self.logger.info("tool_call", tool_name=name, tooL_call_id=tool_call_id, params=params, agent=self.identity)
 
         if output:
             self.console.print(Panel(Pretty(params), title=f"Calling tool {name} with arguments"))
 
     def log_tool_result(self, name:str, tool_call_id:str, result, output:bool=True) -> None:
-        self.logger.info("tool_result", tool_name=name, tooL_call_id=tool_call_id, result=result)
+        self.logger.info("tool_result", tool_name=name, tooL_call_id=tool_call_id, result=result, agent=self.identity)
 
         if output:
             self.console.print(Panel(Pretty(result), title=f"Tool Result for {name}"))
         
-
-    def write_llm_call(self, name, prompt, result, costs, duration=-1):
-        self.logger.info(name, prompt=prompt, result=result, costs=costs, duration=duration)
-
-    def write_executor_tool_call(self, name, cmd, exit_code, result):
-        self.logger.info(name, cmd=cmd, exit_code=exit_code, result=result)
-
-    def write_line(self, line):
-        self.logger.info(line)

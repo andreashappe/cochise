@@ -39,7 +39,7 @@ async def main() -> None:
 
     # setup components..
     tools = [conn.execute_command]
-    executor_factory = ExecutorFactory(model, api_key, SCENARIO, tools, logger, console)
+    executor_factory = ExecutorFactory(model, api_key, SCENARIO, tools, logger)
     planner = Planner(model, api_key, SCENARIO, executor_factory, logger)
 
     # ..and run cochise!
