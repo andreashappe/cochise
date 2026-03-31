@@ -14,28 +14,35 @@ SCENARIO = (pathlib.Path(__file__).parent.parent / "templates" / "scenario.md").
 
 async def main() -> None:
 
-    # setup logggin console for now
-    console = Console()
-
     # setup configuration from environment variables
     load_dotenv()
     conn = get_ssh_connection_from_env()
 
-    logger = Logger()
-    logger.write_line("starting testrun")
+    # setup logging and console output
+    console = Console()
+    logger = Logger(console)
+    logger.log_data("starting test-run")
 
+    # get model data and document configuration in the logs
     model = get_or_fail("LITELLM_MODEL")
     api_key = get_or_fail("LITELLM_API_KEY")
+
+    logger.log_data("configuration", {
+        "model": model,
+        "ssh-host": conn.host,
+        "ssh-user": conn.username,
+        "scenario": SCENARIO,
+    }, output=False)
 
     # open SSH connection
     await conn.connect()
 
-    # setup cochise..
+    # setup components..
     tools = [conn.execute_command]
     executor_factory = ExecutorFactory(model, api_key, SCENARIO, tools, logger, console)
-    planner = Planner(model, api_key, SCENARIO, executor_factory, logger, console)
+    planner = Planner(model, api_key, SCENARIO, executor_factory, logger)
 
-    # ..and run it
+    # ..and run cochise!
     await planner.engage()
 
 asyncio.run(main())

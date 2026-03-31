@@ -69,32 +69,12 @@ PLAN_UPDATE = (TEMPLATE_DIR / "ptt_update.md.jinja2").read_text()
 
 class Planner:
     
-    def __init__(self, model, model_api_key, scenario, executor_factory, logger, console):
+    def __init__(self, model, model_api_key, scenario, executor_factory, logger):
         self.model = model
         self.model_api_key = model_api_key
         self.scenario = scenario
         self.executor_factory = executor_factory
         self.logger = logger
-        self.console = console
-
-    async def revise_plan(self, new_plan:str) -> str:
-        """Revise the current plan based on new information and failed attempts to execute tasks. This can help to overcome potential issues with the initial plan and adapt to new information that was not available when the initial plan was created.
-        
-        Parameters
-        ----------
-        new_plan : str
-        The revised plan that should be used for the next iteration of task selection and execution.
-        
-        Returns
-        -------
-        str
-        The revised plan that should be used for the next iteration of task selection and execution.
-        """
-        self.console.print(Panel(new_plan, title="Revised Plan"))
-
-        # TODO: maybe creae a new history (and rewrite the old one)
-
-        return new_plan
 
     def create_initial_plan(self) -> str:
         template_vars = {
@@ -110,6 +90,7 @@ class Planner:
             {"role": "system", "content": self.scenario},
             {"role": "user", "content": prompt}
         ]
+        self.logger.log_append_to_history(history, "manual", False)
 
         result, duration, costs = llm_typed_call(
             self.model,
@@ -119,13 +100,8 @@ class Planner:
         )
 
         plan = result["content"]
-        print(str(costs))
+        self.logger.log_llm_call('planner_initial_plan', result=plan, costs=costs, duration=duration)
 
-        self.logger.write_llm_call('planner_initial_plan', 
-                                    prompt,
-                                    result['content'],
-                                    costs,
-                                    duration)
         return plan
     
     async def engage(self) -> None:
@@ -135,9 +111,8 @@ class Planner:
         knowledge = Knowledge()
 
         # create an initial plan and select the first task 
-        with self.console.status("[bold green]llm-call: creating initial plan and selecting next task") as status:
+        with self.logger.console.status("[bold green]llm-call: creating initial plan and selecting next task") as status:
             plan = self.create_initial_plan()
-            self.console.print(Panel(plan, title="Initial Plan"))
 
         # TODO: maybe add information about how to structure the PTT here?
         history = [
@@ -146,12 +121,16 @@ class Planner:
             { "role": "assistant", "content": f"# Initial Plan\n\n{plan}" },
             { "role": "user", "content": PROMPT } # always finish with user prompt
         ]
+        self.logger.log_append_to_history(history, "manual", False)
 
         counter = 1
+        # TODO: add a time-based cut-off, e.g., it should stop after 2 hours
         while(True):
 
             if counter % 5 == 0:
-                # commpact history every 10 rounds
+                # TODO: make this cleaner and convert this to the new logging scheme
+                # TODO: also switch to a token usage based scheme
+                # compact history every 10 rounds
                 history.append(
                     { "role": "user", "content": PLANNER_PROMPT }
                 )
@@ -178,19 +157,15 @@ class Planner:
                     { "role": "user", "content": PROMPT } # always finish with user prompt
                 ]
 
-            self.console.print(Panel(Pretty(history)))
-            self.console.print(f"counter: {counter}")
-            # TODO: add revise-prompt somewhere here to allow the planner to revise the plan based on the current state of knowledge and previous attempts to execute tasks. This can help to overcome potential issues with the initial plan and adapt to new information that was not available when the initial plan was created.
-            # TODO: maybe force it to do this every x steps or after a failed attempt to execute a task?
-
             # prepare new executor for this round. This should signalize that the executor
             # always starts from scratch and does not have any memory of previous rounds,
             # but it will have access to the updated knowledge base which it can use to solve
             # the task at hand.
             executor = self.executor_factory.build(knowledge)
+
+            # IDEA: allow the planner to decide for itself when it shall call history compaction. This is too complex for the initial prototype though.
             tool_mapping = LLMFunctionMapping([
                 executor.perform_task,
-                self.revise_plan,
                 knowledge.add_compromised_account,
                 knowledge.update_compromised_account,
                 knowledge.add_entity_information,
@@ -203,47 +178,53 @@ class Planner:
                 tool_mapping,
                 history
             )
-
-            self.console.log(str(costs))
+            self.logger.log_llm_call('planner_task_selection', result=response_message, costs=costs, duration=duration)
 
             history.append(message_to_json(response_message))
-            self.logger.write_llm_call('planner_task_selection', 
-                                        '',
-                                        response_message,
-                                        costs,
-                                        duration)
+            self.logger.log_append_to_history(message_to_json(response_message), "agent", output=False)
 
             if is_tool_call(response_message):
                 for tool_call in response_message.tool_calls:
                     function_name = tool_call.function.name
                     args = json.loads(tool_call.function.arguments)
 
-                    self.console.print(Panel(Pretty(args), title=f"Calling tool {function_name} with arguments"))
+                    self.logger.log_tool_call(function_name, tool_call.id, args)
                     function_to_call = tool_mapping.get_function(function_name)
 
+                    # call the method
                     raw_result = await function_to_call(**args)
+
                     if isinstance(raw_result, tuple):
                         result, new_knowledge = raw_result
+                        if new_knowledge.get_knowledge() != "":
+                            self.logger.log_data("new knowledge", new_knowledge.get_knowledge())
+                            self.logger.console.print(Panel(Pretty(new_knowledge.get_knowledge()), title="New Knowledge"))
                         knowledge.merge(new_knowledge)
                     else:
                         result = raw_result
                         new_knowledge = Knowledge()
 
-                    self.console.print(Panel(Pretty(result), title=f"Tool Result for {function_name}"))
-                    self.console.print(Panel(Pretty(new_knowledge.get_knowledge()), title="New Knowledge"))
-
-                    history.append({
+                    self.logger.log_tool_result(function_name, tool_call.id, result)
+                    msg = {
                         "role": "tool",
                         "name": function_name,
                         "content": result,
                         "tool_call_id": tool_call.id
-                    })
+                    }
+
+                    self.logger.log_append_to_history(msg, "agent", output=False)
+                    history.append(msg)
             else:
-                self.console.print(Panel("LLM did not call a tool, but returned a message. This should not happen, because the planner should only select a task to perform and call the respective tool for that. You might want to check if the LLM is able to call tools correctly.", title="LLM Response without Tool Call"))
-                self.console.print(Panel(Pretty(response_message.content), title="LLM Response Content"))
-                history.append({
+                # LLM did not call a tool, but returned a message. This should not happen,
+                # because the planner should only select a task to perform and call
+                # the respective tool for that. You might want to check if the LLM is able
+                # to call tools correctly.
+                self.logger.console.print(Panel(Pretty(response_message.content), title="LLM Response Content"))
+                msg = {
                     "role": "user",
                     "content": "please continue" 
-                })
+                }
+                self.logger.log_append_to_history(msg, "manual", output=True)
+                history.append(msg)
             
             counter += 1

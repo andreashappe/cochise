@@ -65,23 +65,6 @@ def llm_tool_call(
 
     return response_message, costs, duration
 
-def message_tool_calls_to_json(tool_calls):
-    result = []
-    if tool_calls is not None:
-        for i in tool_calls:
-            result.append({
-                "name": i.function.name,
-                "arguments": i.function.arguments
-            })
-    return result
-
-#def message_to_json(message):
-#    return {
-        #"role": message.role,
-        #"content": message.content,
-        #"tool_calls": message_tool_calls_to_json(message.tool_calls)
-    #}
-
 def message_to_json(message):
     result = {"role": message.role}
 
