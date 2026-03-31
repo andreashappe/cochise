@@ -49,4 +49,5 @@ async def main() -> None:
     # ..and run cochise!
     await planner.engage()
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -98,7 +98,7 @@ class Logger:
             self.console.print(Panel(Pretty(params), title=f"Calling tool {name} with arguments"))
 
     def log_tool_result(self, name:str, tool_call_id:str, result, output:bool=True) -> None:
-        self.logger.info("tool_result", tool_name=name, tooL_call_id=tool_call_id, result=result, agent=self.identity)
+        self.logger.info("tool_result", tool_name=name, tool_call_id=tool_call_id, result=result, agent=self.identity)
 
         if output:
             self.console.print(Panel(Pretty(result), title=f"Tool Result for {name}"))

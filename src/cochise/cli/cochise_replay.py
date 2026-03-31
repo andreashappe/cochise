@@ -11,14 +11,8 @@ from rich.pretty import Pretty
 
 def analyze_replay(console, file):
 
-    ptt:int = 0
-
     for line in file:
         j = json.loads(line)
-
-        if 'result' in j:
-            result = j['result']
-
         match j['event']:
             case 'configuration':
                 data = {
@@ -65,7 +59,7 @@ def analyze_replay(console, file):
                         password = p['password']
                         context = p['context']
                         text = f"user: {username}\npassword: {password}\ncontext:{context}"
-                        console.print(Panel(text, title=f"tool_call: update_compromised_account"))
+                        console.print(Panel(text, title=f"tool_call: add_compromised_account"))
                     case 'update_entity_information':
                         p = j['params']
                         entity = p['entity']
@@ -87,8 +81,6 @@ def analyze_replay(console, file):
                 console.print(Panel(j['result'], title="tool_result"))
             case 'executor_no_summary':
                 console.print(Panel(j['result'], title="Executor Ran Out-of-Rounds, Create Summary"))
-            case 'compact_history':
-                console.print(Panel(j['result'], title="Compacted History"))
             case 'starting test-run':
                 pass # just debug output
             case 'history_append':
