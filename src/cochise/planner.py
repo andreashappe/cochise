@@ -1,3 +1,4 @@
+import datetime
 import json
 import pathlib
 
@@ -70,13 +71,14 @@ PLAN_UPDATE = (TEMPLATE_DIR / "ptt_update.md.jinja2").read_text()
 
 class Planner:
     
-    def __init__(self, model, model_api_key, scenario, executor_factory, logger):
+    def __init__(self, model, model_api_key, scenario, executor_factory, logger, max_runtime:int=0):
         self.model = model
         self.model_api_key = model_api_key
         self.scenario = scenario
         self.executor_factory = executor_factory
         self.logger = logger
-
+        self.max_runtime = max_runtime
+    
     def create_initial_plan(self) -> str:
         template_vars = {
             'user_input': self.scenario,
@@ -111,6 +113,9 @@ class Planner:
 
         knowledge = Knowledge()
 
+        counter = 1
+        started = datetime.datetime.now()
+
         # create an initial plan and select the first task 
         with self.logger.console.status("[bold green]llm-call: creating initial plan and selecting next task") as status:
             plan = self.create_initial_plan()
@@ -124,9 +129,8 @@ class Planner:
         ]
         self.logger.log_append_to_history(history, "manual", False)
 
-        counter = 1
-        # TODO: add a time-based cut-off, e.g., it should stop after 2 hours
-        while(True):
+        # IDEA: I could use a progress bar to show the remaining runtime
+        while( self.max_runtime == 0 or (datetime.datetime.now()- started).total_seconds() <= self.max_runtime):
 
             # TODO: switch to a token usage based scheme
             if counter % 5 == 0:
@@ -229,3 +233,6 @@ class Planner:
                 history.append(msg)
             
             counter += 1
+        
+        if self.max_runtime != 0 and (datetime.datetime.now() - started).total_seconds() > self.max_runtime:
+            self.logger.log_data("completed", f"Max runtime of {self.max_runtime} seconds exceeded, stopping planner loop.", output=True)

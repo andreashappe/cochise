@@ -1,4 +1,5 @@
 import asyncio
+import os
 import pathlib
 
 from dotenv import load_dotenv
@@ -27,11 +28,14 @@ async def main() -> None:
     model = get_or_fail("LITELLM_MODEL")
     api_key = get_or_fail("LITELLM_API_KEY")
 
+    max_runtime = int(os.getenv("MAX_RUN_TIME", "0"))
+
     logger.log_data("configuration", {
         "model": model,
         "ssh-host": conn.host,
         "ssh-user": conn.username,
         "scenario": SCENARIO,
+        "max_runtime": max_runtime,
     }, output=False)
 
     # open SSH connection
@@ -40,7 +44,7 @@ async def main() -> None:
     # setup components..
     tools = [conn.execute_command]
     executor_factory = ExecutorFactory(model, api_key, SCENARIO, tools, logger)
-    planner = Planner(model, api_key, SCENARIO, executor_factory, logger)
+    planner = Planner(model, api_key, SCENARIO, executor_factory, logger, max_runtime)
 
     # ..and run cochise!
     await planner.engage()

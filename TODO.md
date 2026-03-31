@@ -1,10 +1,19 @@
 # next steps / TODO bis Rio
 
-- [ ] work on logging
-- [ ] implement time limit
 - [ ] implement trajectory compression based on used tokens
 - [ ] retest replayer
 - [ ] retest analysis tool -> should be able to count/show compromised accounts + tokens
+
+## Memory
+
+- [ ] use JSON instead of table for transporting knowledge information?
+- [ ] finding: maybe add a simple COW structure (not using that yet)
+- [ ] maybe also add memory for failed attempts
+
+## Errorfixes
+
+- [ ] if error with tool calling (e.g., wrong parameter, add an error message but do not die)
+- [ ] currently fails if we get a response/message >= context-size
 
 # Ideas
 
@@ -44,28 +53,4 @@ The new 'common' attack path is 'as-rep -> cracking -> ADCS -> dump credentials'
         - maybe not a full domain compromise, but really good as second model
 
 - gpt-oss-120b: very struggling, worse than the rest
-- qwen3.5-397b-a17b: died almost instantly due to a parameter erro
-
-## Memory
-
-- [ ] use JSON instead of table for transporting knowledge information?
-- [ ] finding: maybe add a simple COW structure (not using that yet)
-- [ ] maybe also add memory for failed attempts
-
-## Output / Logs
-
-- [ ] verify that we still have good JSON-based logs
-    - [ ] check replay tool
-    - [ ] check analysis tool
-- [ ] maybe also create text-based logs?
-
-## Errorfixes
-
-- [ ] if error with tool calling (e.g., wrong parameter, add an error message but do not die)
-- [ ] currently fails if we get a response/message >= context-size
-
-## Trajectory
-
-- [x] enforce ptt rewriting every r turns
-    - [ ] also actually remove prior history after compaction
-- [ ] circuit-breaker: tell it to stop repeating the same command over-and-over again
+- qwen3.5-397b-a17b: died almost instantly due to a parameter error
