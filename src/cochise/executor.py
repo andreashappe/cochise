@@ -11,13 +11,11 @@ from cochise.knowledge import Knowledge
 
 async def perform_tool_call(id, tool_name, function, args):
     result = await function(**args)
-
-    # TODO: we could actually capture stdout/stderr separately here, as well as finished
     return {
         'tool': tool_name,
         'cmd': args['command'] if 'command' in args else tool_name,
-        'finished': True,
-        'result': result,
+        'result': result['output'] if isinstance(result, dict) and 'output' in result else str(result),
+        'exit_status': result['exit_status'] if isinstance(result, dict) and 'exit_status' in result else None,
         'tool_call_id': id
     }
 
@@ -145,6 +143,8 @@ class Executor:
                         progress.console.print(Panel(result['result'], title=f"Tool Result for {result['cmd']}"), markup=False)
                         self.logger.log_tool_result(result['tool'],result['tool_call_id'], result['result'], output=True)
 
+                        # IDEA: when executing commands, we get an exit-code, use this to
+                        # IDEA: to detect errors.
                         msg = {
                             "tool_call_id": result['tool_call_id'],
                             "role": "tool",

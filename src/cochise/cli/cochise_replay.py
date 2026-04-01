@@ -33,12 +33,20 @@ def analyze_replay(console, file):
                 }
                 tmp = "\n".join([f"{k}: {v}" for k, v in data.items()])
                 console.print(Panel(tmp, title="Configuraton"))
-            case 'planner_initial_plan':
-                console.print(Panel(j['result'], title="Intial Plan"))
-            case 'compact_history':
-                console.print(Panel(j['result'], title="Compacted Plan"))
-            case 'planner_task_selection':
-                console.print("Asking Planner for the next task..")
+            case 'llm_call':
+                match j['name']:
+                    case 'planner_initial_plan':
+                        console.print(Panel(j['result'], title="Intial Plan"))
+                    case 'compact_history':
+                        console.print(Panel(j['result'], title="Compacted Plan"))
+                    case 'planner_task_selection':
+                        console.print("Asking Planner for the next task..")
+                    case 'executor_next_cmds':
+                        console.print("Asking Executor for the next step..")
+                    case 'executor_no_summary':
+                        console.print(Panel(Pretty(j['result']), title="Executor Ran Out-of-Rounds, Create Summary"))
+                    case _:
+                        raise Exception("unhandled llm_call: " + j['name'])
             case 'tool_call':
                 match j['tool_name']:
                     case 'perform_task':
@@ -58,9 +66,6 @@ def analyze_replay(console, file):
                         tool_calls[j['tool_call_id']] = tc_create(j['params'], 'update_compromised_account', ['username', 'password', 'context'])
                     case _:
                         raise Exception("unhandled tool-call: " + j['tool_name'])
-
-            case 'executor_next_cmds':
-                console.print("Asking Executor for the next step..")
             case 'tool_result':
                 assert(j['tool_call_id'] in tool_calls)
 
@@ -84,8 +89,6 @@ def analyze_replay(console, file):
                     case _:
                         raise Exception("unhandled tool-call: " + j['tool_name'])
                 del tool_calls[j['tool_call_id']]
-            case 'executor_no_summary':
-                console.print(Panel(j['result'], title="Executor Ran Out-of-Rounds, Create Summary"))
             case 'starting test-run':
                 pass # just debug output
             case 'history_append':

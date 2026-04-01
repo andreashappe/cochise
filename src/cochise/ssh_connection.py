@@ -18,11 +18,19 @@ class SSHConnection:
     async def connect(self):
         self._conn = await asyncssh.connect(self.host, port=self.port, username=self.username, password=self.password, known_hosts=None)
 
+    # execute the command. We redirect stderr to stdout (to have a unified output stream)
+    # and configure a timeout.
     async def run(self, cmd) -> SSHCompletedProcess:
         if self._conn is None:
             raise Exception("SSH Connection not established")
-
-        return await self._conn.run(cmd, timeout=self.timeout, stderr=asyncssh.STDOUT)
+        
+        result = await self._conn.run(cmd, timeout=self.timeout, stderr=asyncssh.STDOUT)
+        return {
+            'output': result.stdout,
+            'stdout': result.stdout,
+            'stderr': result.stderr,
+            'exit_status': result.returncode
+        }
     
     async def execute_command(self, command: str, mitre_attack_technique: str, mitre_attack_procedure: str) -> str:
         """Execute a command over SSH and return the output.

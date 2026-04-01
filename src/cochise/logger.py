@@ -69,7 +69,7 @@ class Logger:
         if isinstance(result, Message):
             result = message_to_json(result)
 
-        self.logger.info(name, costs=costs, duration=duration, result=result, agent=self.identity)
+        self.logger.info("llm_call", name=name, costs=costs, duration=duration, result=result, agent=self.identity)
         if output:
             # IDEA: make this prettier in the future and maybe add accounting?
             # IDEA: maybe also only output costs/accumulated costs?

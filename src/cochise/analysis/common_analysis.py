@@ -1,4 +1,3 @@
-import argparse
 import json
 
 from dataclasses import dataclass, field
@@ -15,94 +14,65 @@ class OutputTable:
     footers: List[str] = field(default_factory=list)
 
 @dataclass
-class StrategyRound:
-    timestamp: str
-    executor_rounds: int = 0
-    executor_llm_calls: int = 0
-    tool_calls: int = 0
+class LLMCall:
+    name:str
+    count:int = 0
+
+    models:list[str] = field(default_factory=list)
+
+    prompt_tokens:list[int] = field(default_factory=list)
+    completion_tokens:list[int] = field(default_factory=list)
+    reasoning_tokens:list[int] = field(default_factory=list)
+    cached_tokens:list[int] = field(default_factory=list)
+
+    duration:list[float] = field(default_factory=list)
+    cost:list[float] = field(default_factory=list)
 
 @dataclass
-class LLMAccounting:
-    model: str = None
-    duration: float = 0
-    total_tokens: int = 0
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    reasoning_tokens: int = 0
-    cached_tokens: int = 0 
+class ToolCall:
+    name:str
+    count:int = 0
+
+    commands:list[str] = field(default_factory=list)
+    tactics:list[str] = field(default_factory=list)
+    techniques:list[str] = field(default_factory=list)
+    procedures:list[str] = field(default_factory=list)
+    username:list[str] = field(default_factory=list)
+    password:list[str] = field(default_factory=list)
+
+@dataclass
+class Agent:
+    name:str
+    llm_calls:Dict[str, LLMCall] = field(default_factory=dict)
+    tool_calls:Dict[str, ToolCall] = field(default_factory=dict)
 
 @dataclass
 class Run:
-    filename: str = None
+    filename: str
     first_timestamp: str = None
     last_timestamp: str = None
-    duration: float = 0
+
+    agents: Dict[str, Agent] = field(default_factory=dict)
+    duration: float = 0.0
     models: Set[str] = field(default_factory=set)
-    rounds: List[StrategyRound] = field(default_factory=list)
-    tokens: Dict[str, LLMAccounting] = field(default_factory=dict)
 
     def models_str(self) -> str:
-        """Return a string representation of the models used in the run."""
-        return ', '.join(self.models)
+        return ", ".join(self.models)
     
     def duration_str(self) -> str:
-        return str(round(float(self.duration), 2))
-
-
-def add_token_usage_metadata(acc, j):
-    if 'model_name' not in j['costs']:
-        return
-    
-    assert(acc.model == j['costs']['model_name'])
-
-    acc.duration += j['duration']
-    #print(str(j['costs']['usage_metadata']))
-    if 'total_token_count' in j['costs']['usage_metadata']:
-        acc.total_tokens += j['costs']['usage_metadata']['total_token_count']
-        acc.prompt_tokens += j['costs']['usage_metadata']['prompt_token_count']
-        acc.completion_tokens += j['costs']['usage_metadata']['candidates_token_count']
-        acc.reasoning_tokens += 0
-        acc.cached_tokens += j['costs']['usage_metadata']['cached_content_token_count']
-    else:
-        acc.total_tokens += j['costs']['usage_metadata']['total_tokens']
-        acc.prompt_tokens += j['costs']['usage_metadata']['input_tokens']
-        acc.completion_tokens += j['costs']['usage_metadata']['output_tokens']
-        acc.reasoning_tokens += j['costs']['usage_metadata']['output_token_details']['reasoning'] if 'output_token_details' in j['costs']['usage_metadata'] else 0
-        acc.cached_tokens += j['costs']['usage_metadata']['input_token_details']['cache_read'] if 'input_token_details' in j['costs']['usage_metadata'] else 0
-
-
-    return acc
-
-def add_token_usage(acc, j):
-    if 'model_name' not in j['costs']:
-        return
-     
-    assert(acc.model == j['costs']['model_name'])
-
-    #print(str(j['costs']['token_usage']))
-    if 'completion_token_details' in j['costs']['token_usage'] and j['costs']['token_usage']['completion_tokens_details'] != None and 'reasoning' in j['costs']['token_usage']['completion_tokens_details']:
-        reasoning_tokens = j['costs']['token_usage']['completion_tokens_details']['reasoning_tokens']
-    else:
-        reasoning_tokens = 0
-
-    #print(str(j['costs']['token_usage'])) 
-    acc.duration += j['duration']
-    acc.total_tokens += j['costs']['token_usage']['total_tokens']
-    acc.prompt_tokens += j['costs']['token_usage']['prompt_tokens']
-    acc.completion_tokens += j['costs']['token_usage']['completion_tokens']
-    acc.reasoning_tokens += reasoning_tokens
-    acc.cached_tokens += j['costs']['token_usage']['prompt_tokens_details']['cached_tokens'] if 'prompt_tokens_details' in j['costs']['token_usage'] and j['costs']['token_usage']['prompt_tokens_details'] != None else 0
-
-    return acc
+        return f"{self.duration:.2f}s"
 
 def traverse_file(file):
 
-    current_strategy_round = None
-    run = Run(filename=Path(file.name).stem)
+    run = Run(Path(file.name).stem)
+    model = None
 
     for line in file:
+
+        if len(line) == 0:
+            continue
+
         j = json.loads(line)
-        event = j['event']
 
         # extract common data from event
         timestamp = parse(j["timestamp"])
@@ -112,55 +82,71 @@ def traverse_file(file):
             run.first_timestamp = timestamp
         run.last_timestamp = timestamp
 
-        # this means this was a LLM callout
-        if 'costs' in j:
-            # add model name to the run metadata
-            if 'model_name' in j['costs']:
-                model = j['costs']['model_name']
-            else:
-                model = 'unknown-model'
-            run.models.add(model)
+        agent_id = j.get('agent', None)
+        agent = run.agents.get(agent_id, Agent(name=agent_id))
+        assert(agent_id)
 
-            acc = run.tokens.get(event, LLMAccounting(model=model))
-            if 'token_usage' in j['costs']:
-                add_token_usage(acc, j)
-            elif 'usage_metadata' in j['costs']:
-                # if we don't have token usage, we can still get some information from here
-                add_token_usage_metadata(acc, j)
-            run.tokens[event] = acc
+        match j['event']:
+            case 'configuration':
+                if model is not None:
+                    assert(model == j['model'])
+                else:
+                    model = j['model']
+            case 'llm_call':
+                llm_call = agent.llm_calls.get(j['name'], LLMCall(j['name']))
 
-        match event:
-            case 'strategy_update':
-                if not current_strategy_round is None:
-                    run.rounds.append(current_strategy_round)
-                current_strategy_round = StrategyRound(timestamp=timestamp)
-            case 'strategy_next_task':
-                current_strategy_round = StrategyRound(timestamp=timestamp)
-                assert current_strategy_round is not None, "Strategy next task without a strategy update"
-                assert current_strategy_round.executor_llm_calls == 0, "New Round should have no executor calls"
-                assert current_strategy_round.tool_calls == 0, "New Round should have no tool calls"
-                assert current_strategy_round.executor_rounds == 0, "New Round should have no executor rounds"
-            case 'executor_summary_missing':
-                # this means the executor finished without producing a result
-                current_strategy_round.executor_llm_calls += 1
-            case 'executor_next_cmds':
-                if current_strategy_round is None:
-                    print("Warning: executor_next_cmds without a strategy update, wintermute?")
-                    current_strategy_round = StrategyRound(timestamp=timestamp)
-                # executor issued a new round of command(s)
-                current_strategy_round.executor_llm_calls += 1
-                current_strategy_round.executor_rounds += 1
-            case 'executor_cmd':
-                # tool-call was performed (actually finished)
-                current_strategy_round.tool_calls += 1
-  
-    # add the final strategy round if we stopped during a run
-    if current_strategy_round not in run.rounds:
-        run.rounds.append(current_strategy_round)
-    
-    if run.last_timestamp is not None and run.first_timestamp is not None:
-        run.duration = (run.last_timestamp - run.first_timestamp).total_seconds()
-    
+                llm_call.count += 1
+
+                run.models.add(model)
+                llm_call.models.append(model) # TODO: add to logs
+
+                llm_call.prompt_tokens.append(j['costs']['prompt_tokens'])
+                llm_call.completion_tokens.append(j['costs']['completion_tokens'])
+                llm_call.reasoning_tokens.append(j['costs']['completion_tokens_details']['reasoning_tokens'])
+                llm_call.cached_tokens.append(j['costs']['prompt_tokens_details']['cached_tokens'])
+                llm_call.duration.append(j['duration'])
+                llm_call.cost.append(j['costs']['cost'])
+
+                agent.llm_calls[j['name']] = llm_call
+            case 'tool_call':
+                tool_call = agent.tool_calls.get(j['tool_name'], ToolCall(j['tool_name']))
+
+                tool_call.count += 1
+                assert(tool_call.name == j['tool_name'])
+                if 'command' in j['params']:
+                    tool_call.commands.append(j['params']['command'])
+                if 'mitre_attack_tactic' in j['params']:
+                    tool_call.tactics.append(j['params']['mitre_attack_tactic'])
+                if 'mitre_attack_technique' in j['params']:
+                    tool_call.techniques.append(j['params']['mitre_attack_technique'])
+                if 'mitre_attack_procedure' in j['params']:
+                    tool_call.procedures.append(j['params']['mitre_attack_procedure'])
+                if 'username' in j['params']:
+                    tool_call.username.append(j['params']['username'])
+                if 'password' in j['params']:
+                    tool_call.password.append(j['params']['password'])
+
+                agent.tool_calls[j['tool_name']] = tool_call
+            case 'tool_result':
+                pass
+            case 'starting test-run':
+                pass # just debug output
+            case 'history_append':
+                pass # we are not that interesting into history during replay
+            case 'new knowledge':
+                pass
+            case 'executor':
+                pass
+            case 'completed':
+                pass
+            case _:
+                raise Exception("unhandled: " + j['event'])
+
+        run.agents[agent_id] = agent
+
+    # needed for filtering, will be calculated in the end
+    run.duration = (run.last_timestamp - run.first_timestamp).total_seconds()
+
     return run
 
 def my_std_dev(data: List[int]) -> float:

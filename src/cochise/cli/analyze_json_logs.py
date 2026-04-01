@@ -2,26 +2,19 @@
 
 import argparse
 
-from analysis.index_duration import index_duration
-from analysis.index_rounds_and_tokens import index_rounds_and_tokens
-from analysis.index_rounds import index_rounds
-from analysis.show_tokens import show_tokens
+from cochise.analysis.index_rounds_and_tokens import index_rounds_and_tokens
+from cochise.analysis.index_rounds import index_rounds
+from cochise.analysis.show_tokens import show_tokens
 from rich.console import Console
 from rich.table import Table
 
 analysis_functions = {
-        'index-duration': index_duration,
         'index-rounds': index_rounds,
         'index-rounds-and-tokens': index_rounds_and_tokens,
         'show-tokens': show_tokens,
 }
 
-def format_input(i):
-    if '+/-' in i:
-        return i.replace('+/-', '$\\pm$')
-    return i
-
-if __name__=='__main__':
+def main():
 
     console = Console()
 
@@ -35,10 +28,10 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     def filter_result(result):
-        if args.model_eq != None:
+        if args.model_eq is not None:
             if ','.join(sorted(result.models)) != args.model_eq:
                 return False
-        if args.model_substr != None:
+        if args.model_substr is not None:
             if args.model_substr not in (','.join(sorted(result.models))):
                 return False
         return result.duration >= args.duration_min
@@ -52,7 +45,7 @@ if __name__=='__main__':
         console.print(f"Unknown analysis type: {args.analysis}")
         exit(1)
 
-    if args.latex == True:
+    if args.latex:
         print("now doing latex output...")
 
         for table in results:
@@ -78,3 +71,10 @@ if __name__=='__main__':
                 t.add_row(*r)
             console.print(t)
 
+def format_input(i):
+    if '+/-' in i:
+        return i.replace('+/-', '$\\pm$')
+    return i
+
+if __name__=='__main__':
+    main()
