@@ -10,66 +10,11 @@ from cochise.common import LLMFunctionMapping, is_tool_call, llm_tool_call, llm_
 from cochise.knowledge import Knowledge
 from cochise.logger import Logger
 
-# TODO: move this into a template
-PLANNER_PROMPT="""
-You are required to strategize and create a tree-structured task plan that will allow to successfully solve the objective.
-Workers will follow your task plan to complete the objective, and will report after each finished task back to you.
-You should use this feedback to update the task plan.
-
-Make sure to include relevant information, e.g., compromised accounts, credentials,
-and vulnerabilities, tokens, hashes, compromised systems. Also include information
-about successful attacks.
-
-When creating the task plan you must follow the following requirements:
-
-1. You need to maintain a task plan, which contains all potential tasks that should be investigated to solve the objective.
-
-1.1. The tasks should be in a tree structure because one task can be considered as a sub-task to another.
-1.2. Display the tasks in a layer structure, such as 1, 1.1, 1.1.1, etc.
-
-2. Initially, create an minimal plan based upon the provided information.
-2.1. The plan should contain the initial 2-3 tasks that could be delegated to the worker.
-2.2. You will evolve the plan over time based upon the workers' feedback.
-2.3. Don't over-engineer the initial plan.
-
-2.1. This plan should involve individual tasks, that if executed correctly will yield the correct answer.
-2.2. Do not add any superfluous steps but make sure that each step has all the information
-2.3. Be concise with each task description but do not leave out relevant information needed - do not skip steps.
-
-3. Each time you receive results from the worker you should 
-
-3.1. Analyze the results and identify information that might be relevant for solving your objective through future steps.
-3.2. Add new tasks or update existing task information according to the findings.
-3.2.1. You can add additional information, e.g., relevant findings, to the tree structure as tree-items too.
-3.3. You can mark a task as non-relevant and ignore that task in the future. Only do this if a task is not relevant for reaching the objective anymore. You can always make a task relevant again.
-3.4. You must always include the full task plan as answer. If you are working on subquent task groups, still include previous taskgroups, i.e., when you work on task `2.` or `2.1.` you must still include all task groups such as `1.`, `2.`, etc. within the answer.
-
-Provide the hierarchical task plan as answer. Do not include a title or an appendix.
-"""
-
-# TODO: move this into a template
-PROMPT="""
-From all the tasks, identify those that can be performed next. Analyze those
-tasks and decide which one should be performed next based on their likelihood to
-achieve the objective.
-
-Include relevant information for the selected task as its context. This includes
-detailed information such as usernames, credentials, etc. You are allowed to
-gather this information from throughout the whole task plan.  Do only include information
-that is specific to our objective, do not generic information. Be very concise.
-
-Note down findings and potential leads that might be relevant for future tasks.
-Make sure to always include full information, i.e., always include the full hash
-or token and not abbreviated ones.
-
-You can revise the plan based on new information and failed attempts to execute tasks.
-This can help to overcome potential issues with the initial plan and adapt to new
-information that was not available when the initial plan was created. Perform this every
-3-5 rounds.
-"""
-
 TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
+
 PLAN_UPDATE = (TEMPLATE_DIR / "ptt_update.md.jinja2").read_text()
+PLANNER_STRUCTURE = (TEMPLATE_DIR / "planner_ptt.md").read_text()
+PROMPT = (TEMPLATE_DIR / "planner_prompt.md").read_text()
 
 class Planner:
     
@@ -119,12 +64,11 @@ class Planner:
         started = datetime.datetime.now()
 
         # create an initial plan and select the first task 
-        with self.logger.console.status("[bold green]llm-call: creating initial plan and selecting next task") as status:
+        with self.logger.console.status("[bold green]llm-call: creating initial plan and selecting next task"):
             plan = self.create_initial_plan()
 
-        # TODO: maybe add information about how to structure the PTT here?
         history = [
-            { "role": "system", "content": self.scenario },
+            { "role": "system", "content": self.scenario + "\n\n# Task Plan Creation and Evolution\n\n" + PLANNER_STRUCTURE },
             { "role": "user", "content": "Create me an initial plan to achieve the overall objective. Break down the overall objective into smaller tasks and subtasks. Do not include generic steps, only very specific ones that are directly relevant for achieving the overall objective. Be concise." },
             { "role": "assistant", "content": f"# Initial Plan\n\n{plan}" },
             { "role": "user", "content": PROMPT } # always finish with user prompt
@@ -136,7 +80,7 @@ class Planner:
 
             # TODO: switch to a token usage based scheme
             if counter % 5 == 0:
-                msg = { "role": "user", "content": PLANNER_PROMPT }
+                msg = { "role": "user", "content": PLANNER_STRUCTURE + "\n\n# Task\n\nProvide the hierarchical task plan as answer. Do not include a title or an appendix." }
 
                 history.append(msg)
                 self.logger.log_append_to_history(msg, "manual", False)
@@ -153,7 +97,7 @@ class Planner:
                 self.logger.console.print(Panel(plan, title="new plan"))
 
                 history = [
-                    { "role": "system", "content": self.scenario },
+                    { "role": "system", "content": self.scenario + "\n\n# Task Plan Creation and Evolution\n\n" + PLANNER_STRUCTURE },
                     { "role": "user", "content": "Create me an initial plan to achieve the overall objective. Break down the overall objective into smaller tasks and subtasks. Do not include generic steps, only very specific ones that are directly relevant for achieving the overall objective. Be concise." },
                     { "role": "assistant", "content": f"# Initial Plan\n\n{plan}\n\n\n # Gathered Findings\n\n{knowledge.get_knowledge()}" },
                     { "role": "user", "content": PROMPT } # always finish with user prompt
@@ -203,9 +147,10 @@ class Planner:
 
                     if isinstance(raw_result, tuple):
                         result, new_knowledge = raw_result
-                        if new_knowledge.get_knowledge() != "":
-                            self.logger.log_data("new knowledge", new_knowledge.get_knowledge())
-                            self.logger.console.print(Panel(Pretty(new_knowledge.get_knowledge()), title="New Knowledge"))
+                        new_knowledge_str = new_knowledge.get_knowledge()
+                        if new_knowledge_str != "":
+                            self.logger.log_data("new knowledge", new_knowledge_str, output=True)
+                            self.logger.console.print(Panel(Pretty(new_knowledge_str), title="New Knowledge"))
                         knowledge.merge(new_knowledge)
                     else:
                         result = raw_result

@@ -57,10 +57,12 @@ class Logger:
             if output:
                 self.console.log(name)
             self.logger.info(name, agent=self.identity)
-        else:
+        elif isinstance(data, str):
             if output:
                 self.console.log(f"{name}: {data}")
-            self.logger.info(name, { "value": data }, agent=self.identity)
+            self.logger.info(name, content=data, agent=self.identity)
+        else:
+            raise Exception(f"unsupported data type for logging {data}")
 
     def log_llm_call(self, name:str, result, costs: dict, duration:float, output:bool=True) -> None:
 

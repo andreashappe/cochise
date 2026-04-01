@@ -99,7 +99,7 @@ class Executor:
         summary = None
         while round <= MAX_ROUNDS:
 
-            with self.logger.console.status("[bold green]executor: thinking") as status:
+            with self.logger.console.status("[bold green]executor: thinking"):
                 response_message, costs, duration = llm_tool_call(
                     self.model,
                     self.api_key,

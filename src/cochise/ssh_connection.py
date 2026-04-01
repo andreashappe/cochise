@@ -48,7 +48,7 @@ class SSHConnection:
         
         try:
             return (await self._conn.run(command, timeout=self.timeout, stderr=asyncssh.STDOUT)).stdout
-        except asyncssh.misc.ChannelOpenError as e:
+        except asyncssh.misc.ChannelOpenError:
             print("channel wasn't able to be opened, retrying...")
             await self.connect()
             return (await self._conn.run(command, timeout=self.timeout, stderr=asyncssh.STDOUT)).stdout

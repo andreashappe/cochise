@@ -13,7 +13,7 @@ from cochise.ssh_connection import get_ssh_connection_from_env
 
 SCENARIO = (pathlib.Path(__file__).parent.parent / "templates" / "scenario.md").read_text()
 
-async def main() -> None:
+async def async_main() -> None:
 
     # setup configuration from environment variables
     load_dotenv()
@@ -49,5 +49,4 @@ async def main() -> None:
     # ..and run cochise!
     await planner.engage()
 
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(async_main())

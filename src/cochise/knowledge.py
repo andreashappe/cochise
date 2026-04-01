@@ -18,13 +18,15 @@ class Knowledge:
 
         for key, value in other_knowledge.compromised_accounts.items():
             if value['dirty']:
-                self.counter = int(key) if int(key) > self.counter
+                if int(key) > self.counter:
+                    self.counter = int(key)
                 self.compromised_accounts[key] = value
                 self.compromised_accounts[key]['dirty'] = False
         
         for key, value in other_knowledge.entity_information.items():
             if value['dirty']:
-                self.counter = int(key) if int(key) > self.counter
+                if int(key) > self.counter:
+                    self.counter = int(key) 
                 self.entity_information[key] = value
                 self.entity_information[key]['dirty'] = False
 
