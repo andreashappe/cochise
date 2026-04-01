@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from rich.console import Console
 from statistics import mean
 
-from analysis.common_analysis import LLMAccounting, add_token_usage, add_token_usage_metadata
+from cochise.analysis.common_analysis import LLMAccounting, add_token_usage, add_token_usage_metadata
 
 def executor_size(console, input_files):
 
@@ -100,7 +100,10 @@ def executor_size(console, input_files):
 
     return None
 
-def ptt_size(console, input_files):
+def planner_input_size(console, input_files):
+
+    results = traverse_file(i)
+
 
     models = {}
 
@@ -223,13 +226,12 @@ def llm_performance(console, input_files):
 
 
 analysis_functions = {
-    'ptt_size': ptt_size,
+    'planner_input_size': planner_input_size,
     'llm_performance': llm_performance,
     'executor_size': executor_size,
 }
 
-if __name__=='__main__':
-
+def main() -> None:
     console = Console()
 
     parser=argparse.ArgumentParser()
@@ -242,3 +244,6 @@ if __name__=='__main__':
     else:
         console.print(f"Unknown analysis type: {args.analysis}")
         exit(1)
+
+if __name__=='__main__':
+    main()
