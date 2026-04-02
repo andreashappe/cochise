@@ -121,6 +121,8 @@ class Executor:
                             console=self.logger.console
                             ) as progress:
                     
+                    # IDEA: maybe not parallelize to make code simpler? Would be
+                    # IDEA: annoying as parallel network scans would take longer
                     for tool_call in response_message.tool_calls:
                         function_name = tool_call.function.name
                         args = json.loads(tool_call.function.arguments)
@@ -186,4 +188,5 @@ class Executor:
             self.logger.log_llm_call('executor_no_summary', result, costs, duration, output=True)
             summary = result["content"]
 
+        # IDEA: summary often has more findings than knowledge, do explicit transfer step?
         return summary + "\n\n\n" + knowledge.get_knowledge(), knowledge

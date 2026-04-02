@@ -110,7 +110,8 @@ class Planner:
         # IDEA: I could also output the currently used context size
         while( self.max_runtime == 0 or (datetime.datetime.now()- started).total_seconds() <= self.max_runtime):
 
-            # IDEA: do we even know the max-interaction based compaction?
+            # IDEA: do we even need the max-interaction based compaction?
+            # IDEA: give the planner the option to trigger compaction itself by calling a tool
             if self.max_interactions != 0 and interaction_counter >= self.max_interactions or self.max_context_size != 0 and last_input_tokens >= self.max_context_size:
                 self.logger.log_data("compaction-triggered", f"Starting compaction to prevent excessive resource usage. Interaction count: {interaction_counter}, last input token count: {last_input_tokens}", output=True)
                 self.compact_history()
@@ -142,6 +143,7 @@ class Planner:
             self.history.append(message_to_json(response_message))
             self.logger.log_append_to_history(message_to_json(response_message), "agent", output=False)
 
+            # IDEA: unify planner and executor tool call handling
             if is_tool_call(response_message):
                 for tool_call in response_message.tool_calls:
                     function_name = tool_call.function.name
@@ -159,6 +161,7 @@ class Planner:
 
                     if isinstance(raw_result, tuple):
                         result, new_knowledge = raw_result
+                        # IDEA: summary (result) often has a new plan, maybe use that explicitly?
                         new_knowledge_str = new_knowledge.get_knowledge()
                         if new_knowledge_str != "":
                             self.logger.log_data("new knowledge", new_knowledge_str, output=True)

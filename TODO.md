@@ -1,25 +1,12 @@
 # next steps / TODO bis Rio
 
 - [ ] retest analysis tool -> should be able to count/show compromised accounts + tokens
-- [ ] the graph drawing tool?
 - [ ] if error with tool calling (e.g., wrong parameter, add an error message but do not die)
 - [ ] currently fails if we get a response/message >= context-size
 - [ ] the whole knowledge structure is ugly as hell
     - [ ] use JSON instead of table for transporting knowledge information?
     - [ ] finding: maybe add a simple COW structure (not using that yet)
     - [ ] maybe also add memory for failed attempts
-
-# Ideas
-
-- there are also lots of `IDEA` comments in the code
-- should we focus on 500 loc? Or can we do more (600-ish)? benefit
-    - more robust in face of errors
-    - better results (e.g., history management)
-- configurable compaction based on rounds-of-interactions: do we need it?
-- maybe remove parallelization to make code simpler?
-- agents are not really noting down findings, esp. not findings in the summary texts
-    - maybe add an extra loop for that?
-- summary often has an updated 'next-steps' plan, could we use that or is this automatically used anyways
 
 ## Benefits
 

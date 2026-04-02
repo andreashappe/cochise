@@ -1,59 +1,40 @@
 #!/usr/bin/python3
 
 import argparse
-import json
 import matplotlib.pyplot as plt
 
 from rich.console import Console
 from statistics import mean
 
-from cochise.analysis.common_analysis import LLMAccounting, add_token_usage, add_token_usage_metadata
+from cochise.analysis.common_analysis import traverse_file
 
-def executor_size(console, input_files):
+def executor_input_size(console, input_files):
 
     models = {}
-    cached = {}
 
-    for file in input_files:
-        round = 1
-        for line in file:
-            j = json.loads(line)
-            event = j['event']
-            match event:
-                case 'strategy_next_task':
-                    round =1 
-                case 'executor_next_cmds':
-                    assert('costs' in j)
+    max_length = 0
+    for i in input_files:
+        result = traverse_file(i)
 
-                    # this means this was a LLM callout
-                    if 'costs' in j:
-                        # add model name to the run metadata
-                        if 'model_name' in j['costs']:
-                            model = j['costs']['model_name']
-                        else:
-                            model = 'unknown-model'
+        executors = [a for a in result.agents.values() if a.name != 'main']
 
-                        if 'token_usage' in j['costs']:
-                            prompt_tokens = j['costs']['token_usage']['prompt_tokens']
-                            cached_tokens = j['costs']['token_usage']['prompt_tokens_details']['cached_tokens'] if 'prompt_tokens_details' in j['costs']['token_usage'] and j['costs']['token_usage']['prompt_tokens_details'] != None else 0
-                        elif 'usage_metadata' in j['costs'] and j['costs']['usage_metadata'] is not None:
-                            if 'total_token_count' in j['costs']['usage_metadata']:
-                                prompt_tokens = j['costs']['usage_metadata']['prompt_token_count']
-                                cached_tokens = j['costs']['usage_metadata']['cached_content_token_count']
-                            else:
-                                prompt_tokens = j['costs']['usage_metadata']['input_tokens']
-                                cached_tokens = j['costs']['usage_metadata']['input_token_details']['cache_read'] if 'input_token_details' in j['costs']['usage_metadata'] else 0
+        for e in executors:
+            llm_calls = e.llm_calls['executor_next_cmds']
 
-                        if model != 'qwen3:235b-a22b' and model != 'unknown-model':
-                            if model not in models:
-                                models[model] = {}
-                                cached[model] = {}
-                            if round not in models[model]:
-                                models[model][round] = []
-                                cached[model][round] = []
-                            models[model][round].append(prompt_tokens)
-                            cached[model][round].append(cached_tokens)
-                            round += 1
+            model = None
+            for i in range(0, len(llm_calls.prompt_tokens)):
+                if model is None: # TODO: multi-model support
+                    model = llm_calls.models[i]
+                else:
+                    assert(model == llm_calls.models[i])
+
+                tmp = models.get(model, {})
+                if i not in tmp:
+                    tmp[i] = [llm_calls.prompt_tokens[i]]
+                else:
+                    tmp[i].append(llm_calls.prompt_tokens[i])
+                models[model] = tmp
+                max_length = max(max_length, len(tmp.keys()))
 
     for model in models.keys():
         x = []
@@ -63,83 +44,46 @@ def executor_size(console, input_files):
         max_round = len(models[model].keys())
         
         for i in range(max_round):
-            x.append(i+1)
-            y.append(mean(models[model][i+1]))
+            x.append(i)
+            # IDEA: instead of average, display the range
+            y.append(mean(models[model][i]))
 
-        plt.plot(x, y, marker="*", label=pp_model(model))
+        plt.scatter(x, y, marker="*", label=model)
 
     plt.legend() 
     plt.xlabel('Executor Round')
-    plt.xticks(range(0, 10, 1), range(0, 10, 1))
+    plt.xticks(range(0, max_length, 10), range(0, max_length, 10))
     plt.ylabel('Executor Input Size in Tokens')
     plt.savefig('executor_input_size.pdf', format='pdf')
     plt.clf()
 
-    for model in models.keys():
-        x = []
-        y = []
-
-        print(f"Model: {model} rounds: {len(models[model].keys())}")
-        max_round = len(models[model].keys())
-        
-        for i in range(max_round):
-            x.append(i+1)
-            tmp = list(map(lambda x: x[0]/x[1], zip(cached[model][i+1], models[model][i+1])))
-            print(str(tmp))
-            y.append(mean(tmp))
-
-        plt.scatter(x, y, marker="*", label=pp_model(model))
-
-    plt.legend() 
-    plt.xlabel('Executor Round')
-    plt.xticks(range(0, 10, 1), range(0, 10, 1))
-    plt.ylabel('Cached Executor Input in Percent')
-    plt.savefig('executor_cached_input.pdf', format='pdf')
-    plt.clf()
-
-
-    return None
-
-def planner_input_size(console, input_files):
-
-    results = traverse_file(i)
-
+def executor_cache_size(console, input_files):
 
     models = {}
 
-    for file in input_files:
-        round = 1
-        for line in file:
-            j = json.loads(line)
-            event = j['event']
-            match event:
-                case 'strategy_update':
-                    assert('costs' in j)
+    max_length = 0
+    for i in input_files:
+        result = traverse_file(i)
 
-                    # this means this was a LLM callout
-                    if 'costs' in j:
-                        # add model name to the run metadata
-                        if 'model_name' in j['costs']:
-                            model = j['costs']['model_name']
-                        else:
-                            model = 'unknown-model'
+        executors = [a for a in result.agents.values() if a.name != 'main']
 
-                        if 'token_usage' in j['costs']:
-                            size = j['costs']['token_usage']['completion_tokens']
-                        elif 'usage_metadata' in j['costs'] and j['costs']['usage_metadata'] is not None:
-                            if 'total_token_count' in j['costs']['usage_metadata']:
-                                size = j['costs']['usage_metadata']['candidates_token_count']
-                            else:
-                                size = j['costs']['usage_metadata']['output_tokens']
+        for e in executors:
+            llm_calls = e.llm_calls['executor_next_cmds']
 
-                        if model != 'qwen3:235b-a22b' and model != 'unknown-model':
-                            if model not in models:
-                                models[model] = {}
-                            if round not in models[model]:
-                                models[model][round] = []
-                            models[model][round].append(size)
-                            print(f"Model: {model} size: {size}")
-                            round += 1
+            model = None
+            for i in range(0, len(llm_calls.cached_tokens)):
+                if model is None: # TODO: multi-model support
+                    model = llm_calls.models[i]
+                else:
+                    assert(model == llm_calls.models[i])
+
+                tmp = models.get(model, {})
+                if i not in tmp:
+                    tmp[i] = [llm_calls.cached_tokens[i]]
+                else:
+                    tmp[i].append(llm_calls.cached_tokens[i])
+                models[model] = tmp
+                max_length = max(max_length, len(tmp.keys()))
 
     for model in models.keys():
         x = []
@@ -149,86 +93,172 @@ def planner_input_size(console, input_files):
         max_round = len(models[model].keys())
         
         for i in range(max_round):
-            x.append(i+1)
-            y.append(mean(models[model][i+1]))
+            x.append(i)
+            # IDEA: instead of average, display the range
+            y.append(mean(models[model][i]))
 
-        plt.scatter(x, y, marker="*", label=pp_model(model))
+        plt.scatter(x, y, marker="*", label=model)
 
     plt.legend() 
-    plt.xlabel('Planner Round')
-    plt.xticks(range(0, 100, 10), range(0, 100, 10))
-    plt.ylabel('State/Pentest-Task-Tree (PTT) Size in Tokens')
-    plt.savefig('ptt_size.pdf', format='pdf')
+    plt.xlabel('Executor Round')
+    plt.xticks(range(0, max_length, 10), range(0, max_length, 10))
+    plt.ylabel('Executor Cache Size in Tokens')
+    plt.savefig('executor_cache_size.pdf', format='pdf')
     plt.clf()
 
     return None
 
 
-def pp_model(model):
-    match model:
-        case 'models/gemini-2.5-flash-preview-04-17':
-            return 'Gemini-2.5-Flash'
-        case 'gpt-4o-2024-08-06':
-            return 'GPT-4o'
-        case 'deepseek-chat':
-            return 'DeepSeek-V3'
-        case 'o1-2024-12-17':
-            return 'O1'
-        case 'qwen3:32b':
-            return 'Qwen3'
+def planner_input_size(console, input_files):
 
-def llm_performance(console, input_files):
+    models = {}
+    max_length = 0
 
-    results = {}
+    for i in input_files:
+        result = traverse_file(i)
 
-    for file in input_files:
-        for line in file:
-            j = json.loads(line)
+        llm_calls = result.agents['main'].llm_calls['planner_task_selection']
 
-            # this means this was a LLM callout
-            if 'costs' in j:
-                # add model name to the run metadata
-                if 'model_name' in j['costs']:
-                    model = j['costs']['model_name']
-                else:
-                    model = 'unknown-model'
+        model = None
+        for i in range(0, len(llm_calls.prompt_tokens)):
+            if model is None: # TODO: multi-model support
+                model = llm_calls.models[i]
+            else:
+                assert(model == llm_calls.models[i])
 
-                if model == 'unknown-model' or model == 'qwen3:235b-a22b' or model == 'qwen3:32b':
-                    continue  # skip unknown models
+            tmp = models.get(model, {})
+            if i not in tmp:
+                tmp[i] = [llm_calls.prompt_tokens[i]]
+            else:
+                tmp[i].append(llm_calls.prompt_tokens[i])
+            models[model] = tmp
+            max_length = max(max_length, len(tmp.keys()))
 
-                coll = results.get(model, [])
-                acc = LLMAccounting(model=model)
-                if 'token_usage' in j['costs']:
-                    add_token_usage(acc, j)
-                elif 'usage_metadata' in j['costs']:
-                    # if we don't have token usage, we can still get some information from here
-                    add_token_usage_metadata(acc, j)
-                coll.append(acc)
-                results[model] = coll
-    
-    for model, accs in results.items():
+    for model in models.keys():
         x = []
         y = []
 
-        for acc in accs:
-            # remove outliers
-            if acc.duration <= 500 and acc.total_tokens <= 100000:
-                x.append(acc.total_tokens)
-                y.append(acc.duration)
+        print(f"Model: {model} rounds: {len(models[model].keys())}")
+        max_round = len(models[model].keys())
+        
+        for i in range(max_round):
+            x.append(i)
+            y.append(mean(models[model][i]))
 
-        plt.scatter(x, y, marker="*", label=pp_model(model))
+        plt.scatter(x, y, marker="*", label=model)
 
-    plt.xlabel('Total Token Count of Query (Sum of Prompt and Completion Tokens)')
-    plt.ylabel('Query Round-Trip Time in Seconds')
+    plt.legend() 
+    plt.xlabel('Planner Task-Round')
+    plt.xticks(range(0, max_length, 10), range(0, max_length, 10))
+    plt.ylabel('Planner Input History Size in Tokens')
+    plt.savefig('planner_input_size.pdf', format='pdf')
+    plt.clf()
+
+
+def llm_duration_vs_tokens(console, input_files):
+
+    models = {}
+
+    for i in input_files:
+        result = traverse_file(i)
+
+        model = None
+        for a in result.agents.values():
+            for llm_call in a.llm_calls.values():
+                for i in range(0, len(llm_call.models)):
+                    if model is None: # TODO: multi-model support
+                        model = llm_call.models[i]
+                    else:
+                        assert(model == llm_call.models[i])
+
+                    tmp = models.get(model, { 'input': [], 'output': [], 'duration': [], 'price': [] })
+
+                    tmp['input'].append(llm_call.prompt_tokens[i])
+                    tmp['output'].append(llm_call.completion_tokens[i])
+                    tmp['price'].append(llm_call.cost[i])
+                    tmp['duration'].append(llm_call.duration[i])
+
+                    models[model] = tmp
+
+    # input tokens vs duration
+    for model, values in models.items():
+        x = []
+        y = []
+
+        assert(len(values['input']) == len(values['duration']))
+        for i in range(0, len(values['input'])):
+            x.append(values['input'][i])
+            y.append(values['duration'][i])
+
+        plt.scatter(x, y, marker="*", label=model)
+
+    plt.xlabel('Input Tokens)')
+    plt.ylabel('Query Duration in Seconds')
     plt.legend()
-    plt.savefig('tokens_vs_duration.pdf', format='pdf')
+    plt.savefig('input_tokens_vs_duration.pdf', format='pdf')
+    plt.clf()
+
+    # output tokens vs duration
+    for model, values in models.items():
+        x = []
+        y = []
+
+        assert(len(values['output']) == len(values['duration']))
+        for i in range(0, len(values['output'])):
+            x.append(values['output'][i])
+            y.append(values['duration'][i])
+
+        plt.scatter(x, y, marker="*", label=model)
+
+    plt.xlabel('Output Tokens)')
+    plt.ylabel('Query Duration in Seconds')
+    plt.legend()
+    plt.savefig('output_tokens_vs_duration.pdf', format='pdf')
+    plt.clf()
+
+    # input tokens vs price
+    for model, values in models.items():
+        x = []
+        y = []
+
+        assert(len(values['input']) == len(values['price']))
+        for i in range(0, len(values['input'])):
+            x.append(values['input'][i])
+            y.append(values['price'][i])
+
+        plt.scatter(x, y, marker="*", label=model)
+
+    plt.xlabel('Input Tokens)')
+    plt.ylabel('Query Price')
+    plt.legend()
+    plt.savefig('input_tokens_vs_price.pdf', format='pdf')
+    plt.clf()
+
+
+    # output tokens vs price
+    for model, values in models.items():
+        x = []
+        y = []
+
+        assert(len(values['output']) == len(values['price']))
+        for i in range(0, len(values['output'])):
+            x.append(values['output'][i])
+            y.append(values['price'][i])
+
+        plt.scatter(x, y, marker="*", label=model)
+
+    plt.xlabel('Output Tokens)')
+    plt.ylabel('Query Price')
+    plt.legend()
+    plt.savefig('output_tokens_vs_price.pdf', format='pdf')
     plt.clf()
 
 
 analysis_functions = {
     'planner_input_size': planner_input_size,
-    'llm_performance': llm_performance,
-    'executor_size': executor_size,
+    'llm_duration_vs_tokens': llm_duration_vs_tokens,
+    'executor_input_size': executor_input_size,
+    'executor_cache_size': executor_cache_size,
 }
 
 def main() -> None:
@@ -240,7 +270,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.analysis in analysis_functions.keys():
-        results = analysis_functions[args.analysis](console, args.input)
+        analysis_functions[args.analysis](console, args.input)
     else:
         console.print(f"Unknown analysis type: {args.analysis}")
         exit(1)
