@@ -62,6 +62,9 @@ class Run:
     def duration_str(self) -> str:
         return f"{self.duration:.2f}s"
 
+    def duration_str_min(self) -> str:
+        return f"{(self.duration/60):.2f}m"
+
 def traverse_file(file):
 
     run = Run(Path(file.name).stem)

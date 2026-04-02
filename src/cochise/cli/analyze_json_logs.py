@@ -4,6 +4,7 @@ import argparse
 
 from cochise.analysis.index_rounds_and_tokens import index_rounds_and_tokens
 from cochise.analysis.index_rounds import index_rounds
+from cochise.analysis.index_tokens_and_accounts import index_tokens_and_accounts
 from cochise.analysis.show_tokens import show_tokens
 from rich.console import Console
 from rich.table import Table
@@ -12,6 +13,7 @@ analysis_functions = {
         'index-rounds': index_rounds,
         'index-rounds-and-tokens': index_rounds_and_tokens,
         'show-tokens': show_tokens,
+        'index-tokens-and-accounts': index_tokens_and_accounts
 }
 
 def main():

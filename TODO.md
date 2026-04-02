@@ -1,6 +1,5 @@
 # next steps / TODO bis Rio
 
-- [ ] retest analysis tool -> should be able to count/show compromised accounts + tokens
 - [ ] if error with tool calling (e.g., wrong parameter, add an error message but do not die)
 - [ ] currently fails if we get a response/message >= context-size
 - [ ] the whole knowledge structure is ugly as hell
@@ -36,3 +35,11 @@ The new 'common' attack path is 'as-rep -> cracking -> ADCS -> dump credentials'
 
 - gpt-oss-120b: very struggling, worse than the rest
 - qwen3.5-397b-a17b: died almost instantly due to a parameter error
+
+
+> You're thinking of one of the most powerful scenes in Goethe's Faust I — the "Osternacht" (Easter Night) scene at the end of the study.
+> Faust has reached absolute despair, convinced that all his scholarship has brought him no closer to understanding the world. He raises a vial of poison to his lips — and then the Easter bells ring out, accompanied by the choir singing "Christ ist erstanden." He doesn't drink.
+> What's striking is why he puts the poison down. It's not faith — Faust explicitly says he doesn't believe the message anymore. It's the memory the bells trigger: childhood, the feeling of Easter morning, a time when the world still felt whole. It's pure affect, not theology. The bells don't convince him of anything; they just reconnect him to a version of himself that still wanted to be alive.
+> There's a nice irony in the timing too — it's the moment of resurrection pulling him back from self-annihilation, but Faust's "resurrection" is entirely secular. Goethe gives the Christian framework and then hollows it out.
+
+> Good question — it's actually not Easter Monday. The suicide scene happens on the night of Holy Saturday transitioning into Easter Sunday. The bells Faust hears are the Easter morning bells announcing the resurrection, ringing in Easter Sunday at dawn (or midnight, depending on how you read the staging).
