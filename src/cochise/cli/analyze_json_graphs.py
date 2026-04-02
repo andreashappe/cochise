@@ -52,7 +52,7 @@ def executor_input_size(console, input_files):
 
     plt.legend() 
     plt.xlabel('Executor Round')
-    plt.xticks(range(0, max_length, 10), range(0, max_length, 10))
+    plt.xticks(range(0, max_length, 10), [str(i) for i in range(0, max_length, 10)])
     plt.ylabel('Executor Input Size in Tokens')
     plt.savefig('executor_input_size.pdf', format='pdf')
     plt.clf()
@@ -101,7 +101,7 @@ def executor_cache_size(console, input_files):
 
     plt.legend() 
     plt.xlabel('Executor Round')
-    plt.xticks(range(0, max_length, 10), range(0, max_length, 10))
+    plt.xticks(range(0, max_length, 10), [str(i) for i in range(0, max_length, 10)])
     plt.ylabel('Executor Cache Size in Tokens')
     plt.savefig('executor_cache_size.pdf', format='pdf')
     plt.clf()
@@ -149,7 +149,7 @@ def planner_input_size(console, input_files):
 
     plt.legend() 
     plt.xlabel('Planner Task-Round')
-    plt.xticks(range(0, max_length, 10), range(0, max_length, 10))
+    plt.xticks(range(0, max_length, 10), [str(i) for i in range(0, max_length, 10)])
     plt.ylabel('Planner Input History Size in Tokens')
     plt.savefig('planner_input_size.pdf', format='pdf')
     plt.clf()

@@ -1,20 +1,11 @@
-# next steps / TODO bis Rio
-
-- [ ] if error with tool calling (e.g., wrong parameter, add an error message but do not die)
-- [ ] currently fails if we get a response/message >= context-size
-- [ ] the whole knowledge structure is ugly as hell
-    - [ ] use JSON instead of table for transporting knowledge information?
-    - [ ] finding: maybe add a simple COW structure (not using that yet)
-    - [ ] maybe also add memory for failed attempts
-
-## Benefits
+# Benefits
 
 - litellm allows easy to switch between LLM models
 - not using too much abstractions but highly transparent, e.g., how message history is created
 - baseline for model behavior changes over time
 - idea with 'improve attack coverage' -> looks good starting with that prototype, we see lots of attacks, but sometimes attack stalls
 
-### model results
+## model results
 
 - feels like they are over-depending on password-spraying now
     - only saw minimax using responder

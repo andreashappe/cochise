@@ -6,7 +6,7 @@ from jinja2 import Template
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn,TimeElapsedColumn
 
-from cochise.common import is_tool_call, LLMFunctionMapping, llm_tool_call, llm_typed_call, message_to_json
+from cochise.common import is_tool_call, LLMFunctionMapping, llm_call, llm_tool_call, message_to_json
 from cochise.knowledge import Knowledge
 
 async def perform_tool_call(id, tool_name, function, args):
@@ -47,7 +47,7 @@ class Executor:
     def setLogger(self, logger):
         self.logger = logger
 
-    async def perform_task(self, next_step: str, next_step_context: str, mitre_attack_tactic: str, mitre_attack_technique: str) -> str:
+    async def perform_task(self, next_step: str, next_step_context: str, mitre_attack_tactic: str, mitre_attack_technique: str) -> tuple[str, Knowledge]:
         """Perform the given task, which is a sub-task of the overall hacking objective.
 
         Parameters
@@ -98,6 +98,9 @@ class Executor:
         while round <= MAX_ROUNDS:
 
             with self.logger.console.status("[bold green]executor: thinking"):
+
+                # TODO: we need some error handling here (in case of misformed tool calls)
+                # TODO: we do not limit the message size here, which can lead to running-out-of-context errors
                 response_message, costs, duration = llm_tool_call(
                     self.model,
                     self.api_key,
@@ -179,12 +182,7 @@ class Executor:
             history.append(msg)
             self.logger.log_append_to_history(msg, source='manual', output=False)
 
-            result, duration, costs = llm_typed_call(
-                self.model,
-                self.api_key,
-                history,
-                "executor_no_summary",
-            ) 
+            result, duration, costs = llm_call(self.model, self.api_key, history) 
             self.logger.log_llm_call('executor_no_summary', result, costs, duration, output=True)
             summary = result["content"]
 

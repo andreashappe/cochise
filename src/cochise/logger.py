@@ -1,10 +1,11 @@
+import structlog
+
 from types import NoneType
 
 from litellm import Message
 from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
-import structlog
 
 from datetime import datetime
 from pathlib import Path
@@ -13,10 +14,10 @@ from cochise.common import message_to_json
 
 class Logger:
 
-    logger = None
-    identity= 'main'
+    logger:structlog.WriteLogger
+    identity:str
 
-    def __init__(self, console:Console, identity:str=None, logger=None):
+    def __init__(self, console:Console, identity:str='main', logger=None):
 
         self.console = console
 
@@ -25,6 +26,8 @@ class Logger:
             self.identity = identity
             self.logger = logger
         else:
+            self.identity = identity
+
             # setup structured logging
             current_timestamp = datetime.now()
             formatted_timestamp = current_timestamp.strftime('%Y%m%d-%H%M%S')
@@ -52,15 +55,15 @@ class Logger:
             if output:
                 tmp = "\n".join([f"{k}: {v}" for k, v in data.items()])
                 self.console.print(Panel(tmp, title=name))
-            self.logger.info(name, agent=self.identity,**data)
+            self.logger.info(name, agent=self.identity,**data) # ty: ignore[unknown-argument]
         elif isinstance(data, NoneType):
             if output:
                 self.console.log(name)
-            self.logger.info(name, agent=self.identity)
+            self.logger.info(name, agent=self.identity) # ty: ignore[unknown-argument]
         elif isinstance(data, str):
             if output:
                 self.console.log(f"{name}: {data}")
-            self.logger.info(name, content=data, agent=self.identity)
+            self.logger.info(name, content=data, agent=self.identity) # ty: ignore[unknown-argument]
         else:
             raise Exception(f"unsupported data type for logging {data}")
 
@@ -69,7 +72,7 @@ class Logger:
         if isinstance(result, Message):
             result = message_to_json(result)
 
-        self.logger.info("llm_call", name=name, costs=costs, duration=duration, result=result, agent=self.identity)
+        self.logger.info("llm_call", name=name, costs=costs, duration=duration, result=result, agent=self.identity) # ty: ignore[unknown-argument]
         if output:
             # IDEA: make this prettier in the future and maybe add accounting?
             # IDEA: maybe also only output costs/accumulated costs?
@@ -81,7 +84,7 @@ class Logger:
     def log_history_item(self, entry, source, output) -> None:
         if isinstance(entry, Message):
             entry = message_to_json(entry)
-        self.logger.info("history_append", source=source, content=entry, agent=self.identity)
+        self.logger.info("history_append", source=source, content=entry, agent=self.identity) # ty: ignore[unknown-argument]
         if output:
             self.console.print(Panel(Pretty(entry), title=f"Appended ({source.capitalize()}) Message To History"))
 
@@ -94,13 +97,13 @@ class Logger:
             self.log_history_item(entry, source, output)
     
     def log_tool_call(self, name:str, tool_call_id:str, params, output:bool=True) -> None:
-        self.logger.info("tool_call", tool_name=name, tool_call_id=tool_call_id, params=params, agent=self.identity)
+        self.logger.info("tool_call", tool_name=name, tool_call_id=tool_call_id, params=params, agent=self.identity) # ty: ignore[unknown-argument]
 
         if output:
             self.console.print(Panel(Pretty(params), title=f"Calling tool {name} with arguments"))
 
     def log_tool_result(self, name:str, tool_call_id:str, result, output:bool=True) -> None:
-        self.logger.info("tool_result", tool_name=name, tool_call_id=tool_call_id, result=result, agent=self.identity)
+        self.logger.info("tool_result", tool_name=name, tool_call_id=tool_call_id, result=result, agent=self.identity) # ty: ignore[unknown-argument]
 
         if output:
             self.console.print(Panel(Pretty(result), title=f"Tool Result for {name}"))

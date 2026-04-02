@@ -1,3 +1,4 @@
+import datetime
 import json
 
 from dataclasses import dataclass, field
@@ -49,8 +50,8 @@ class Agent:
 @dataclass
 class Run:
     filename: str
-    first_timestamp: str = None
-    last_timestamp: str = None
+    first_timestamp: datetime.datetime|None = None
+    last_timestamp: datetime.datetime|None = None
 
     agents: Dict[str, Agent] = field(default_factory=dict)
     duration: float = 0.0
@@ -68,7 +69,6 @@ class Run:
 def traverse_file(file):
 
     run = Run(Path(file.name).stem)
-    model = None
 
     for line in file:
 
@@ -89,11 +89,13 @@ def traverse_file(file):
         agent = run.agents.get(agent_id, Agent(name=agent_id))
         assert(agent_id)
 
+        model = 'unknown'
+
         match j['event']:
             case 'configuration':
-                if model is not None:
+                if model is not None and model != 'unknown':
                     assert(model == j['model'])
-                else:
+                elif 'model' in j:
                     model = j['model']
             case 'llm_call':
                 llm_call = agent.llm_calls.get(j['name'], LLMCall(j['name']))
@@ -148,6 +150,8 @@ def traverse_file(file):
         run.agents[agent_id] = agent
 
     # needed for filtering, will be calculated in the end
+    assert(run.first_timestamp is not None)
+    assert(run.last_timestamp is not None)
     run.duration = (run.last_timestamp - run.first_timestamp).total_seconds()
 
     return run

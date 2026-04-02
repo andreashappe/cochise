@@ -2,9 +2,7 @@ import datetime
 import litellm
 import os
 
-from dataclasses import asdict
-from typing import Any, Callable, Type
-from pydantic import BaseModel
+from typing import Any, Callable
 
 def get_or_fail(name: str) -> str:
     value = os.environ.get(name)
@@ -32,7 +30,7 @@ class LLMFunctionMapping:
     def get_function(self, value) -> Callable:
         return self.mapping[value]
     
-def convert_costs_to_json(costs):
+def convert_costs_to_json(costs) -> dict:
     result = costs.__dict__
     if result["prompt_tokens_details"] is not None:
         result["prompt_tokens_details"] = costs.prompt_tokens_details.__dict__
@@ -89,13 +87,7 @@ def message_to_json(message):
     return result
 
 # only used by ptt for now, but could be used by executor in the future as well
-def llm_typed_call[T: BaseModel](
-    model: str,
-    api_key: str,
-    messages: list[dict[str, Any]],
-    id: str,
-    type: Type[T] | None = None,
-) -> T:
+def llm_call(model: str, api_key: str, messages: list[dict[str, Any]]):
     """make a simple LLM call without any response format parsing"""
 
     tik = datetime.datetime.now()
@@ -103,7 +95,6 @@ def llm_typed_call[T: BaseModel](
         model=model,
         messages=messages,
         api_key=api_key,
-        response_format=type,
     )
     tok = datetime.datetime.now()
 
@@ -114,17 +105,11 @@ def llm_typed_call[T: BaseModel](
     costs = convert_costs_to_json(response.usage)
     duration = (tok - tik).total_seconds()
 
-    if type is not None:
-        result = type.model_validate_json(response.choices[0].message.content)
-        content = asdict(result)
-        return result, duration, costs
-    else:
-        result = response.choices[0].message
-        content = {
-            "content": result.content,
-            "reasoning_content": result.reasoning_content
-            if hasattr(result, "reasoning_content")
-            else None,
-        }
-        return content, duration, costs
-
+    result = response.choices[0].message
+    content = {
+        "content": result.content,
+        "reasoning_content": result.reasoning_content
+        if hasattr(result, "reasoning_content")
+        else None,
+    }
+    return content, duration, costs

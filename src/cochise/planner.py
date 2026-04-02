@@ -6,7 +6,7 @@ from jinja2 import Template
 from rich.panel import Panel
 from rich.pretty import Pretty
 
-from cochise.common import LLMFunctionMapping, is_tool_call, llm_tool_call, llm_typed_call, message_to_json
+from cochise.common import LLMFunctionMapping, is_tool_call, llm_call, llm_tool_call, message_to_json
 from cochise.knowledge import Knowledge
 from cochise.logger import Logger
 
@@ -48,30 +48,20 @@ class Planner:
         ]
         self.logger.log_append_to_history(tmp_history, "manual", False)
 
-        result, duration, costs = llm_typed_call(
-            self.model,
-            self.model_api_key,
-            tmp_history,
-            "planner_initial_plan",
-        )
+        result, duration, costs = llm_call(self.model, self.model_api_key, tmp_history)
 
         plan = result["content"]
         self.logger.log_llm_call('planner_initial_plan', result=plan, costs=costs, duration=duration)
 
         return plan
     
-    async def compact_history(self) -> None:
+    def compact_history(self) -> None:
         msg = { "role": "user", "content": PLANNER_STRUCTURE + "\n\n# Task\n\nProvide the hierarchical task plan as answer. Do not include a title or an appendix." }
 
         self.history.append(msg)
         self.logger.log_append_to_history(msg, "manual", False)
 
-        result, duration, costs = llm_typed_call(
-            self.model,
-            self.model_api_key,
-            self.history,
-            "compact history",
-        ) 
+        result, duration, costs = llm_call(self.model, self.model_api_key, self.history)
 
         plan = result["content"]
         self.logger.log_llm_call('compact_history', plan, costs, duration, output=True)
@@ -122,7 +112,6 @@ class Planner:
             # the task at hand.
             executor = self.executor_factory.build(self.knowledge)
 
-            # IDEA: allow the planner to decide for itself when it shall call history compaction. This is too complex for the initial prototype though.
             tool_mapping = LLMFunctionMapping([
                 executor.perform_task,
                 self.knowledge.add_compromised_account,
@@ -131,6 +120,7 @@ class Planner:
                 self.knowledge.update_entity_information
             ])
 
+            # TODO: we need some error handling here (in case of misformed tool calls)
             response_message, costs, duration = llm_tool_call(
                 self.model,
                 self.model_api_key,
@@ -182,6 +172,8 @@ class Planner:
                     self.logger.log_append_to_history(msg, "agent", output=False)
                     self.history.append(msg)
             else:
+                # TODO: check if we're really done and exit
+
                 # LLM did not call a tool, but returned a message. This should not happen,
                 # because the planner should only select a task to perform and call
                 # the respective tool for that. You might want to check if the LLM is able

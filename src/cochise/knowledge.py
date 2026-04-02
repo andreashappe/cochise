@@ -1,3 +1,6 @@
+# IDEA: the whole knowledge structure is ugly as hell
+# IDEA: use JSON instead of table for transporting knowledge information?
+# IDEA: maybe also add memory for failed attempts
 class Knowledge:
     def __init__(self):
         self.compromised_accounts = {}
