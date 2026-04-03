@@ -333,10 +333,11 @@ wheels = [
 
 [[package]]
 name = "cochise"
-version = "0.0.2"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "asyncssh" },
+    { name = "jinja2" },
     { name = "litellm" },
     { name = "matplotlib" },
     { name = "numpydoc" },
@@ -348,6 +349,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "asyncssh", specifier = ">=2.22.0" },
+    { name = "jinja2" },
     { name = "litellm" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "numpydoc", specifier = ">=1.10.0" },
