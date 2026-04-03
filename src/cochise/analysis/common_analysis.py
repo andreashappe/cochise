@@ -70,6 +70,7 @@ def traverse_file(file):
 
     run = Run(Path(file.name).stem)
 
+    model = 'unknown'
     for line in file:
 
         if len(line) == 0:
@@ -89,11 +90,9 @@ def traverse_file(file):
         agent = run.agents.get(agent_id, Agent(name=agent_id))
         assert(agent_id)
 
-        model = 'unknown'
-
         match j['event']:
             case 'configuration':
-                if model is not None and model != 'unknown':
+                if model != 'unknown':
                     assert(model == j['model'])
                 elif 'model' in j:
                     model = j['model']
