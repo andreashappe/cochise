@@ -1,6 +1,6 @@
 [project]
 name = "cochise"
-version = "0.0.2"
+version = "0.3.0"
 description = "Autonomously attack AD networks using LLMs"
 readme = "README.md"
 authors = [
@@ -15,6 +15,7 @@ dependencies = [
 	"python-dateutil>=2.9.0.post0", # needed only for analysis
 	"rich>=14.3.3",
 	"structlog>=25.5.0",
+	"jinja2"
 ]
 
 [project.scripts]
