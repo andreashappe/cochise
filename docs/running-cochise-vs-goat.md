@@ -1,111 +1,8 @@
-# Installation and Reproduction Report
+# How to Run Cochise Against GOAD (Game of Active Directory)
 
-This is a markdown conversion of my RCR report submitted to TOSEM.
+> This is a markdown conversion of my [RCR report submitted to TOSEM](https://dl.acm.org/doi/abs/10.1145/3800584).
 
-This section provides a brief summary of the motivation and contribution
-of the paper behind this RCR
-report [@happe2025llmshackenterprisenetworks]. The vast majority of the
-setup time for our prototype is spent on installing and configuring the
-existing third-party GOAD testbed. To allow for easier analysis, we
-include log data from our test-runs within the provided *cochise*
-repository. If the creation of the whole GOAD testbed is infeasible due
-to its resource usage, these log files can be used to perform the data
-analysis as detailed in
-Section [5.2](#data_analysis){reference-type="ref"
-reference="data_analysis"}.
-
-## Paper Motivation
-
-Attackers will gain access to internal organization networks. Modern
-defensive techniques, e.g, Zero-Trust Architectures [@stafford2020zero],
-accept this and try to minimize the potential impact that an attacker
-can inflict within internal networks. Typically, organizations perform
-*Assumed Breach Simulations* to find potential security vulnerabilities,
-and subsequently fix them. The *Simulation* in *Assumed Breach
-Simulation* stands for simulating attackers; all performed operations
-are real hacking operations performed against the live organization
-network. This does not happen regularly due to the high cost of
-performing security-testing.
-
-The motivation for our research is multi-fold:
-
--   to evaluate the capabilities of LLMs to perform Assumed Breach
-    Simulations against live networks. This implies that we will use a
-    realistic and complex testbed for our *Capability Evaluation*.
-
--   to investigate the costs of using LLM-powered security testing. Are
-    they a viable alternative for SME and NGOs which often cannot afford
-    human penetration-testers?
-
--   to raise awareness about LLM's offensive capabilities, esp. with LLM
-    providers and LLM creators. If off-the-shelf LLMs are capable of
-    penetration-testing, future LLMs should include safe rails to
-    prevent abuse.
-
-## Paper Contribution
-
-This paper includes the following contributions:
-
--   **A Novel Autonomous Prototype for Penetration-Testing.** We
-    introduce a novel prototype that autonomously conducts complex
-    penetration-tests on live enterprise networks using the ubiquitous
-    Microsoft Active Directory. Our system is designed to automate a
-    complex and human-intensive software security task.
-
--   **Comprehensive Evaluation of LLM Capabilities in Real-Life
-    Scenarios.** We provide a comprehensive evaluation of LLM
-    capabilities in penetration-testing, detailing both strengths and
-    limitations in real-life contexts. The deliberate choice of a
-    "messy" live testing environment addresses known concerns about the
-    limitations of synthetic testbeds for real-life security impact
-    evaluations [@sommer2010outside; @lukošiūtė2025llmcyberevaluationsdont].
-
--   **Systematic Quantitative and Qualitative Analysis with Expert
-    Insights.** We systematically analyze quantitative metrics and
-    integrate qualitative insights gathered from security experts. Our
-    multi-faceted approach, combining automated data with human expert
-    analysis, enhances the depth and validity of our findings. The
-    validation of the prototype's activities against established
-    cybersecurity frameworks like MITRE ATT&CK links observed behaviors
-    to recognized industry standards and grounds our research in
-    practical, real-world software security engineering.
-
--   **Investigating the Impact of Reasoning LLMs.** To the best of our
-    knowledge this is the first paper that applies cutting-edge
-    Reasoning LLMs to the problem of performing automated
-    penetration-testing.
-
-While we have chosen a scenario from the security domain for our
-evaluation, the used LLM architecture and techniques are domain-agnostic
-and can be used for improving the autonomous usage of LLMs in
-non-related domains.
-
-# Artifacts
-
-The artifacts are released on Github[^1]. At the high level, they
-consist of the following components (also see
-Table [\[table:papers\]](#table:papers){reference-type="ref"
-reference="table:papers"}):
-
--   **Prototype Code** for Evidence Generation.
-
--   **Generated Evidence** in the form of JSON log files
-
--   **Analysis Scripts** for analysis of evidence
-
-::: table*
-::: center
-  Artifact              Available At                                                                 Used License
-  --------------------- ---------------------------------------------------------------------------- --------------
-  Evidence generation   <https://github.com/andreashappe/cochise/tree/main/src>                      MIT
-  Generated Evidence    <https://github.com/andreashappe/cochise/tree/main/examples/initial-paper>   MIT
-  Analysis Scripts      <https://github.com/andreashappe/cochise/tree/main/src/analysis>             MIT
-:::
-
-[]{#table:papers label="table:papers"}
-:::
-
-# Prerequisites and Requirements
+## Prerequisites and Requirements
 
 The testbed of our prototype depends on a virtualized third-party
 testbed, *A Game of Active Directory*[^2]. Our requirements are thus the
@@ -113,7 +10,7 @@ requirements for the testbed, the requirements for the standard *Kali*
 virtual machine used to execute commands, and the requirements for
 operating our prototype including providing access to a LLM.
 
-## Hardware
+### Hardware
 
 We ran all tests on a *x86-64* desktop computer (AMD Ryzen 9 9950x with
 12 cores, 192 GB RAM, 1 TB system NVM SSD). All virtual machines were
@@ -134,19 +31,28 @@ dependencies, it needs roughly 2 gigabyte of filesystem storage.
 Overall, this yields a minimum amount of 48GB RAM and roughly 190GB of
 hard-drive space.
 
-## Virtualization Infrastructure
+### Virtualization Infrastructure
 
 GOAD supports multiple virtualization backends including Oracle
 Virtualbox, VMWare Workstation Pro, or Proxmox. While we initially used
-Oracle Virtualbox, stability issues motivated us to switch to VMWware
-Enterprise Pro which can be downloaded from
-<https://support.broadcom.com/> after a free user registration.
+Oracle Virtualbox for the TOSEM paper, stability issues motivated us to
+switch to VMWware Enterprise Pro (using a free license) for the
+RCR report.
+
+Luckily I found later out that you can also run GOAD through libvirt
+which is the native linux virtualization solution.
+
+### KVM/libvirt
+
+This is my preferred way of running GOAD if you're using Linux as host.
+While it is not "officially" supported yet, you can use [this pull request](https://github.com/Orange-Cyberdefense/GOAD/pull/475). Runs perfectly for me.
+
+### VMWare
 
 GOAD utilizes *vagrant* and *ansible* for automatization, both of which
 were provided by our used Linux Distribution (Fedora Linux 42). To
 prevent version-related problems, we installed *vagrant* and
-*vagrant-vmware-utility* from
-<https://developer.hashicorp.com/vagrant/docs/providers/vmware/vagrant-vmware-utility>.
+[vagrant-vmware-utility](https://developer.hashicorp.com/vagrant/docs/providers/vmware/vagrant-vmware-utility).
 
 After the *vagrant-vmware-utility* was installed, it must be activated
 as a *systemd*-service. While this has not been documented by HashiCorp
@@ -287,35 +193,6 @@ For running our python-based prototype with different cloud-provided
 LLMs, respective API-keys are needed. If LLMs should be run locally, we
 recommend using the OpenAI-compatible REST-interface of *ollama*.
 
-We aligned our LLM selection process and the final selection with
-best-practices for evaluating LLMs in offensive security
-settings [@happe2025benchmarkingpracticesllmdrivenoffensive]. We have
-selected five different LLM configurations for our analysis:
-
--   *OpenAI's GPT-4o* (gpt-4o-2024-08-06, temperature set to 0) and
-    *DeepSeek's [DeepSeek-V3]{.smallcaps}* (temperature set to 0) will
-    be used as baseline non-reasoning LLMs. This allows us to compare
-    the performance of a closed-weight (GPT-4o) with an open-weight LLM
-    ([DeepSeek-V3]{.smallcaps}).
-
--   *Google's [Gemini-2.5-Flash]{.smallcaps} (Preview)* (temperature set
-    to 0) was used as an example of an integrated reasoning LLM. In
-    addition, we will test the combination of *OpenAI's o1*
-    (o1-preview-2024-12-17) for the high-level
-    [Planner]{.smallcaps} with *OpenAI's GPT-4o* (temperature set to 0)
-    for the low-level [Executor]{.smallcaps}.
-
--   Finally, we will investigate *Alibaba's [Qwen3]{.smallcaps}* as an
-    example of an open-weight Small World Model (SLM) with reasoning
-    capabilities that should be suitable for deployment on local
-    edge-devices.
-
-All models were hosted on their respective maker's cloud offerings. We
-utilized LambdaLabs[^6] for running [Qwen3]{.smallcaps} by renting a
-virtual machine providing sufficient hardware (VM with a single nVidia
-PCIe-A100 with 40GB VRAM, 30 vCPUs, 200GB RAM) and software (Ubuntu
-22.03.5LTS, nvidida 570.124.06-0Lambda0.22.04.2, Ollama v0.9.0) stack.
-
 # Setup the Cochise Prototype
 
 We include instructions on how to configure the *cochise* prototype,
@@ -382,12 +259,6 @@ width="\\textwidth"}
 ![Using *analyze-json-logs.py* do detail the token-usage per used prompt
 of a single test-run. O1 reports reasoning-tokens as part of the
 completion tokens.](show.png){#fig:show width="\\textwidth"}
-
-Please also see our *Methodology* Section $3.5$ in the original
-paper [@happe2025llmshackenterprisenetworks]. We recommend to download
-the latest version of cochise (as this version includes all log files as
-well improved analysis scripts that were added after the experiments
-were executed):
 
 ``` shell
 # clone the repository
