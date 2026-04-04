@@ -1,17 +1,32 @@
-[build-system]
-requires = ["setuptools >= 61.0"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "cochise"
-version = "0.2.1"
-dependencies = [
-    "langchain-openai>=1.1.4",
-    "langchain-google-genai>=4.1.2",
-    "python-dotenv>=1.0.1",
-    "rich>=14.2.0",
-    "structlog>=25.5.0",
-    "asyncssh",
-    "jinja2"
+version = "0.3.0"
+description = "Autonomously attack AD networks using LLMs"
+readme = "README.md"
+authors = [
+    { name = "Andreas Happe", email = "andreas@offensive.one" }
 ]
-requires-python = ">= 3.12"
+requires-python = ">=3.12"
+dependencies = [
+	"asyncssh>=2.22.0",
+	"litellm",
+	"matplotlib>=3.10.8", # needed only for analysis
+	"numpydoc>=1.10.0",
+	"python-dateutil>=2.9.0.post0", # needed only for analysis
+	"rich>=14.3.3",
+	"structlog>=25.5.0",
+	"jinja2"
+]
+
+[project.scripts]
+cochise = "cochise.cli.cochise:main"
+cochise-replay = "cochise.cli.cochise_replay:main"
+cochise-analyze-logs = "cochise.cli.analyze_json_logs:main"
+cochise-analyze-graphs = "cochise.cli.analyze_json_graphs:main"
+
+[build-system]
+requires = ["uv_build>=0.8.16,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 99        # as allowed by https://peps.python.org/pep-0008/#maximum-line-length
