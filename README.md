@@ -90,6 +90,10 @@ LiteLLM supports [100+ LLM providers](https://docs.litellm.ai/docs/providers) ou
 
 ### Run
 
+Before you run it, check `src/cochise/templates/scenario.md`. This file contains generic instructions
+for the LLM ('attack the AD network'). It also contains the target IP range (hardcoded to the default
+192.168.122.0/24 IP range of GOAD when running using libvirt/KVM). Change this to fit your lab setup.
+
 ```bash
 uv run cochise
 ```
