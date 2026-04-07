@@ -9,7 +9,7 @@ Cochise is a minimal, readable prototype that uses LLMs to autonomously pen-test
 
 So basically, I use LLMs to hack Microsoft Active Directory networks.. what could possibly go wrong?
 
-![AS-REP Roasting into Domain Enumeration]
+![AS-REP Roasting into Domain Enumeration](docs/asrep_into_enumeration.png)
 
 **Why does this exist?** There are many autonomous hacking agent prototypes out there, but no good *baseline*. Cochise is deliberately minimal so you can:
 
