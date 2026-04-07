@@ -21,7 +21,7 @@ async def perform_tool_call(id, tool_name, function, args):
 
 TEMPLATE_DIR = pathlib.Path(__file__).parent / "templates"
 PROMPT = (TEMPLATE_DIR / "executor_prompt.md.jinja2").read_text()
-MAX_ROUNDS:int=10
+MAX_ROUNDS:int=25
 
 class ExecutorFactory:
     def __init__(self, model, api_key, scenario, configured_tools, logger):
@@ -68,9 +68,6 @@ class Executor:
         """
 
         self.logger.log_data("executor", "Starting task: " + next_step)
-        if self.system_knowledge.get_knowledge() != "":
-            self.logger.console.print(Panel(self.system_knowledge.get_knowledge(), title="Existing Knowledge"))
-
         prompt = Template(PROMPT).render({
             'next_step': next_step,
             'next_step_context': next_step_context,
@@ -80,11 +77,11 @@ class Executor:
             
         history = [
             { "role": "system", "content": self.scenario },
-            { "role": "user", "content": prompt + "\n\n\n" + 'always note down findings and potential leads' },
+            { "role": "user", "content": prompt },
         ]
         self.logger.log_append_to_history(history, source='manual', output=False)
 
-        knowledge = Knowledge()
+        knowledge = Knowledge(self.logger)
         tools = LLMFunctionMapping(self.configured_tools + [
             knowledge.add_compromised_account,
             knowledge.update_compromised_account,
@@ -92,12 +89,15 @@ class Executor:
             knowledge.update_entity_information
         ])
 
+        prompt = f"[bold]Task: {next_step}\nCategorization:[/bold] {mitre_attack_tactic}/{mitre_attack_technique}\n\n[bold]Context:[/bold]\n{next_step_context}\n\n[bold]Existing Knowledge:[/bold]\n{self.system_knowledge.get_knowledge()}"
+        self.logger.console.print(Panel(prompt, title="Executor Started"))
+
         # try to solve our sub-task
         round = 1
         summary = None
         while round <= MAX_ROUNDS:
 
-            with self.logger.console.status("[bold green]executor: thinking"):
+            with self.logger.console.status("[bold green]executor: selecting next action"):
 
                 # TODO: we need some error handling here (in case of misformed tool calls)
                 # TODO: we do not limit the message size here, which can lead to running-out-of-context errors
@@ -107,7 +107,7 @@ class Executor:
                     tools,
                     history
                 )
-                self.logger.log_llm_call('executor_next_cmds', response_message, costs, duration, output=True)
+                self.logger.log_llm_call('executor_next_cmds', response_message, costs, duration, output=False)
                 
                 self.logger.log_append_to_history(response_message, source='agent', output=False)
                 history.append(message_to_json(response_message))
@@ -136,7 +136,7 @@ class Executor:
                             cmd = function_name
 
                         display[tool_call.id] = progress.add_task(f"[bold green]Executing `{cmd}`", total=100)
-                        self.logger.log_tool_call(function_name, tool_call.id, args, output=True)
+                        self.logger.log_tool_call(function_name, tool_call.id, args, output=False)
                         tasks.append(asyncio.create_task(perform_tool_call(tool_call.id, function_name, tools.get_function(function_name), args)))
 
                     for done in asyncio.as_completed(tasks):
@@ -145,8 +145,9 @@ class Executor:
                         task_id = display[result['tool_call_id']]
 
                         progress.update(task_id, advance=100)
-                        progress.console.print(Panel(result['result'], title=f"Tool Result for {result['cmd']}"), markup=False)
-                        self.logger.log_tool_result(result['tool'],result['tool_call_id'], result['result'], output=True)
+                        if result['tool'] == 'execute_command':
+                            progress.console.print(Panel(result['result'], title=f"Tool Result for {result['cmd']}"), markup=False)
+                        self.logger.log_tool_result(result['tool'],result['tool_call_id'], result['result'], output=False)
 
                         # IDEA: when executing commands, we get an exit-code, use this to
                         # IDEA: to detect errors.

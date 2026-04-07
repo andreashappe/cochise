@@ -2,10 +2,11 @@
 # IDEA: use JSON instead of table for transporting knowledge information?
 # IDEA: maybe also add memory for failed attempts
 class Knowledge:
-    def __init__(self):
+    def __init__(self, logger):
         self.compromised_accounts = {}
         self.entity_information = {}
         self.counter = 1
+        self.logger = logger
 
     def merge(self, other_knowledge):
         """Merge another Knowledge instance into this one, combining compromised accounts and entity information.
@@ -52,7 +53,7 @@ class Knowledge:
                 'dirty': True
         }
         self.counter += 1
-
+        self.logger.console.log(f"[red]Knowledge[/red]: Added compromised account {username} with context: {context}")
         return f"noted compromised account {username} with context: {context}"
 
     async def update_compromised_account(self, key:str, username:str, password:str, context:str):
@@ -75,6 +76,7 @@ class Knowledge:
                 'context': context,
                 'dirty': True
         }
+        self.logger.console.log(f"[red]Knowledge[/red]: Updated compromised account {username} with context: {context}")
         return f"updated account {username} with context: {context}"
 
 
@@ -94,6 +96,7 @@ class Knowledge:
             'dirty': True
         }
         self.counter += 1
+        self.logger.console.log(f"[red]Knowledge[/red]: Added information for entity {entity}: {information}")
         return f"noted information for entity {entity}: {information}"
 
     async def update_entity_information(self, key: str, entity:str, information:str):
@@ -113,6 +116,7 @@ class Knowledge:
             'information': information,
             'dirty': True
         }
+        self.logger.console.log(f"[red]Knowledge[/red]: Updated information for entity {entity}: {information}")
         return f"noted information for entity {entity}: {information}"
 
 

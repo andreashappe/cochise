@@ -78,8 +78,9 @@ class Logger:
             # IDEA: maybe also only output costs/accumulated costs?
             if isinstance(result, dict):
                 result = Pretty(result)
-            self.console.print(Panel(result, title=f"LLM Call Result for {name}"))
-            self.console.log(str(costs))
+
+            cost_str = f"Tokens: {costs['total_tokens']} (prompt: {costs['prompt_tokens']}, cached: {costs['prompt_tokens_details']['cached_tokens']}, completion: {costs['completion_tokens']}), Cost: ${costs['cost']:.4f}, Duration: {duration:.2f}s"
+            self.console.print(Panel(result, title=f"LLM Call Result for {name}", subtitle=cost_str))
 
     def log_history_item(self, entry, source, output) -> None:
         if isinstance(entry, Message):

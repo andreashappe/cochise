@@ -1,4 +1,5 @@
 import asyncio
+import litellm
 import os
 import pathlib
 
@@ -18,6 +19,9 @@ async def async_main() -> None:
     # setup configuration from environment variables
     load_dotenv()
     conn = get_ssh_connection_from_env()
+
+    # disable warnings about unknown models
+    litellm.suppress_debug_info = True
 
     # setup logging and console output
     console = Console()
