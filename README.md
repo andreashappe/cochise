@@ -1,12 +1,14 @@
 # Cochise: Autonomous LLM-Driven Pen-Testing in ~576 Lines of Python
 
+[![arXiv](https://img.shields.io/badge/cs.SE-%20arXiv:2502.04227-B31B1B.svg)](https://arxiv.org/abs/2502.04227)
+
 > Full Active Directory domain compromise. Under $2. Less than 2 hours. No human in the loop. How?
 
 Cochise is a minimal, readable prototype that uses LLMs to autonomously pen-test enterprise networks using Microsoft Active Directory. Point it at a testbed, pick an LLM, and watch it plan attack chains, execute commands, harvest credentials, and escalate to domain admin.
 
 So basically, I use LLMs to hack Microsoft Active Directory networks.. what could possibly go wrong?
 
-![AS-REP Roasting into Domain Enumeration](docs/asrep_into_enumeration.png)
+![AS-REP Roasting into Domain Enumeration]
 
 **Why does this exist?** There are many autonomous hacking agent prototypes out there, but no good *baseline*. Cochise is deliberately minimal so you can:
 
