@@ -1,6 +1,7 @@
 # Cochise: Autonomous LLM-Driven Pen-Testing in ~576 Lines of Python
 
-[![arXiv](https://img.shields.io/badge/cs.SE-%20arXiv:2502.04227-B31B1B.svg)](https://arxiv.org/abs/2502.04227)
+[![arXiv Paper](https://img.shields.io/badge/cs.SE-%20arXiv:2502.04227%20(Main%20Paper)-B31B1B.svg)](https://arxiv.org/abs/2502.04227)
+[![arXiv RCR](https://img.shields.io/badge/cs.SE-%20arXiv:2603.01789%20(RCR)-B31B1B.svg)](https://arxiv.org/abs/2603.01789)
 
 > Full Active Directory domain compromise. Under $2. Less than 2 hours. No human in the loop. How?
 
