@@ -44,7 +44,7 @@ class Knowledge:
         password : str
             the account's password or password hash.
         context : str
-            additional information/context on the compromised account.
+            additional context information on the compromised account.
         """
         self.compromised_accounts[str(self.counter)] = {
                 'username': username,
