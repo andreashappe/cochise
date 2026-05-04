@@ -15,7 +15,7 @@ def index_rounds(console:Console, input_files, filter_result):
 
         if filter_result(result):
 
-            tool_calls = [r.tool_calls['execute_command'].count for r in result.agents.values() if r.name != 'main']
+            tool_calls = [r.tool_calls['execute_command'].count for r in result.agents.values() if r.name != 'main' and 'execute_command' in r.tool_calls]
 
             rows.append([
                 result.filename,

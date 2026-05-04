@@ -27,7 +27,7 @@ def index_rounds_and_tokens(console:Console, input_files, filter_result) -> List
             executors = [a for a in result.agents.values() if a.name != 'main']
 
             tasks_executor = main.tool_calls['perform_task'].count
-            commands_executed = [r.tool_calls['execute_command'].count for r in executors]
+            commands_executed = [r.tool_calls['execute_command'].count for r in executors if 'execute_command' in r.tool_calls]
 
             planner_input = sum([(sum(i.prompt_tokens) - sum(i.cached_tokens)) for i in main.llm_calls.values()])
             planner_output = sum([sum(i.completion_tokens) for i in main.llm_calls.values()])

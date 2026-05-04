@@ -29,7 +29,7 @@ def index_tokens_and_accounts(console:Console, input_files, filter_result) -> Li
             executors = [a for a in result.agents.values() if a.name != 'main']
 
             tasks_executor = main.tool_calls['perform_task'].count
-            commands_executed = [r.tool_calls['execute_command'].count for r in executors]
+            commands_executed = [r.tool_calls['execute_command'].count for r in executors if 'execute_command' in r.tool_calls]
 
             prompt_tokens = 0
             completion_tokens = 0
