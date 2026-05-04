@@ -6,6 +6,7 @@ from litellm import Message
 from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
+from rich.errors import NotRenderableError
 
 from datetime import datetime
 from pathlib import Path
@@ -80,7 +81,11 @@ class Logger:
                 result = Pretty(result)
 
             cost_str = f"Tokens: {costs['total_tokens']} (prompt: {costs['prompt_tokens']}, cached: {costs['prompt_tokens_details']['cached_tokens']}, completion: {costs['completion_tokens']}), Cost: ${costs['cost']:.4f}, Duration: {duration:.2f}s"
-            self.console.print(Panel(result, title=f"LLM Call Result for {name}", subtitle=cost_str))
+            try:
+                self.console.print(Panel(result, title=f"LLM Call Result for {name}", subtitle=cost_str))
+            except NotRenderableError as e:
+                self.logger.error("Failed to render LLM call result", exception=e)
+                print(str(result))
 
     def log_history_item(self, entry, source, output) -> None:
         if isinstance(entry, Message):
