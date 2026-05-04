@@ -30,11 +30,18 @@ class Planner:
         self.history = []
         self.knowledge = Knowledge(self.logger)
 
+        if PLANNER_STRUCTURE is None or PLANNER_STRUCTURE == "":
+            self.PLANNER_INITIAL_STRUCTURE = "Provide a task plan as answer. Do not include a title or an appendix."
+            self.SCENARIO_AND_STRUCTURE = self.scenario
+        else:
+            self.PLANNER_INITIAL_STRUCTURE = PLANNER_STRUCTURE + "\n\n# Task\n\nProvide the hierarchical task plan as answer. Do not include a title or an appendix."
+            self.SCENARIO_AND_STRUCTURE = self.scenario + "\n\n# Task Plan Creation and Evolution\n\n" + PLANNER_STRUCTURE
+
     # IDEA: unify with compact_history
     def create_initial_plan(self) -> str:
         tmp_history = [
             {"role": "system", "content": self.scenario},
-            {"role": "user",   "content": PLANNER_STRUCTURE + "\n\n# Task\n\nProvide the hierarchical task plan as answer. Do not include a title or an appendix." }
+            {"role": "user", "content": self.PLANNER_INITIAL_STRUCTURE }
         ]
         self.logger.log_append_to_history(tmp_history, "manual", False)
 
@@ -46,7 +53,7 @@ class Planner:
         return plan
     
     def compact_history(self) -> None:
-        msg = { "role": "user", "content": PLANNER_STRUCTURE + "\n\n# Task\n\nProvide the hierarchical task plan as answer. Do not include a title or an appendix." }
+        msg = {"role": "user", "content": self.PLANNER_INITIAL_STRUCTURE }
 
         self.history.append(msg)
         self.logger.log_append_to_history(msg, "manual", False)
@@ -58,7 +65,7 @@ class Planner:
         self.logger.console.print(Panel(plan, title="new plan"))
 
         self.history = [
-            { "role": "system", "content": self.scenario + "\n\n# Task Plan Creation and Evolution\n\n" + PLANNER_STRUCTURE },
+            { "role": "system", "content": self.SCENARIO_AND_STRUCTURE},
             { "role": "user", "content": "Create me an initial plan to achieve the overall objective. Break down the overall objective into smaller tasks and subtasks. Do not include generic steps, only very specific ones that are directly relevant for achieving the overall objective. Be concise." },
             { "role": "assistant", "content": f"# Initial Plan\n\n{plan}\n\n\n # Gathered Findings\n\n{self.knowledge.get_knowledge()}" },
             { "role": "user", "content": PROMPT } # always finish with user prompt
