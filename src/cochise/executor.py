@@ -10,7 +10,11 @@ from cochise.common import is_tool_call, LLMFunctionMapping, llm_call, llm_tool_
 from cochise.knowledge import Knowledge
 
 async def perform_tool_call(id, tool_name, function, args):
-    result = await function(**args)
+    try:
+        result = await function(**args)
+    except Exception as e:
+        result = f"Error executing tool {tool_name} with arguments {args}: {str(e)}"
+
     return {
         'tool': tool_name,
         'cmd': args['command'] if 'command' in args else tool_name,
@@ -161,7 +165,7 @@ class Executor:
                         self.logger.log_append_to_history(msg, source='agent', output=False)
             else:
                 # the AI message has not tool_call -> this was some sort of result then
-                if response_message.content == '':
+                if response_message.content is None or response_message.content == '':
                     msg = {
                         "role": "user",
                         "content": "please continue" 
@@ -178,14 +182,19 @@ class Executor:
 
         if summary is None:
             # create new summary based on history
-            msg = { "role": "user", "content": "provide a summary including all findings for the high level strategy component." }
+            msg = { "role": "user", "content": "provide a summary including all findings for the high level strategy component. If there was no usable information gained, state so and hypothesize what might be the case If there was no usable information gained, state so and hypothesize what might be the case." }
 
             history.append(msg)
             self.logger.log_append_to_history(msg, source='manual', output=False)
 
             result, duration, costs = llm_call(self.model, self.api_key, history) 
             self.logger.log_llm_call('executor_no_summary', result, costs, duration, output=True)
-            summary = result["content"]
+
+            if result["content"] is None or result["content"] == '':
+                self.logger.console.log("Executor failed to produce a summary after " + str(MAX_ROUNDS) + " rounds and a follow-up prompt.. returning empty summary")
+                summary = "Experiment was not successful in gaining any relevant information for the task. This could be due to a variety of reasons, such as lack of access to necessary tools, insufficient context, or the inherent difficulty of the task. It's also possible that the AI encountered unexpected issues during execution. Further investigation and adjustments may be needed to achieve better results in future attempts."
+            else:
+                summary = result["content"]
 
         # IDEA: summary often has more findings than knowledge, do explicit transfer step?
         return summary + "\n\n\n" + knowledge.get_knowledge(), knowledge
