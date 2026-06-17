@@ -8,6 +8,18 @@ class Knowledge:
         self.counter = 1
         self.logger = logger
 
+    def _numeric_key(self, key) -> int | None:
+        """Return the integer value of a key, or None if it is not numeric.
+
+        The id/index of every entry is supposed to be numeric. The LLM
+        occasionally passes a non-numeric identifier (e.g. a username or entity
+        name) as the key, so we cannot blindly cast keys to int.
+        """
+        try:
+            return int(str(key).strip())
+        except (TypeError, ValueError):
+            return None
+
     def merge(self, other_knowledge):
         """Merge another Knowledge instance into this one, combining compromised accounts and entity information.
 
@@ -22,15 +34,17 @@ class Knowledge:
 
         for key, value in other_knowledge.compromised_accounts.items():
             if value['dirty']:
-                if int(key) > self.counter:
-                    self.counter = int(key) + 1
+                numeric_key = self._numeric_key(key)
+                if numeric_key is not None and numeric_key >= self.counter:
+                    self.counter = numeric_key + 1
                 self.compromised_accounts[key] = value
                 self.compromised_accounts[key]['dirty'] = False
-        
+
         for key, value in other_knowledge.entity_information.items():
             if value['dirty']:
-                if int(key) > self.counter:
-                    self.counter = int(key) + 1
+                numeric_key = self._numeric_key(key)
+                if numeric_key is not None and numeric_key >= self.counter:
+                    self.counter = numeric_key + 1
                 self.entity_information[key] = value
                 self.entity_information[key]['dirty'] = False
 
@@ -46,7 +60,7 @@ class Knowledge:
         context : str
             additional context information on the compromised account.
         """
-        self.compromised_accounts[str(self.counter)] = {
+        self.compromised_accounts[self.counter] = {
                 'username': username,
                 'password': password,
                 'context': context,
@@ -56,13 +70,35 @@ class Knowledge:
         self.logger.console.log(f"[red]Knowledge[/red]: Added compromised account {username} with context: {context}")
         return f"noted compromised account {username} with context: {context}"
 
-    async def update_compromised_account(self, key:str, username:str, password:str, context:str):
+    def _resolve_key(self, store: dict, key, identity_field: str, identity_value: str) -> int:
+        """Resolve the integer key of the entry that should be updated.
+
+        Keys are always integers. If ``key`` is numeric and already identifies
+        an existing entry it is used as-is. Otherwise the LLM most likely passed
+        a non-numeric identifier (e.g. the username/entity name) instead of the
+        numeric id from the overview table, so we try to locate the matching
+        entry by its identity field. If nothing matches, a fresh numeric id is
+        allocated so we never store an entry under a non-numeric key.
+        """
+        numeric_key = self._numeric_key(key)
+        if numeric_key is not None and numeric_key in store:
+            return numeric_key
+
+        for existing_key, value in store.items():
+            if value.get(identity_field) == identity_value:
+                return existing_key
+
+        new_key = self.counter
+        self.counter += 1
+        return new_key
+
+    async def update_compromised_account(self, key:int, username:str, password:str, context:str):
         """Update saved information of a compromised account identified by its numeric id, esp. if you a password or hash has been identified.
 
         Parameters
         ----------
-        key :str
-            the account id as given in the overview table
+        key : int
+            the numeric account id as given in the overview table
         username : str
             the username of the identified or compromised account.
         password : str
@@ -70,6 +106,7 @@ class Knowledge:
         context : str
             additional information/context on the compromised account.
         """
+        key = self._resolve_key(self.compromised_accounts, key, 'username', username)
         self.compromised_accounts[key] = {
                 'username': username,
                 'password': password,
@@ -90,7 +127,7 @@ class Knowledge:
         information : str
             The information about the respective entity.
         """ 
-        self.entity_information[str(self.counter)]={
+        self.entity_information[self.counter]={
             'entity': entity,
             'information': information,
             'dirty': True
@@ -99,18 +136,19 @@ class Knowledge:
         self.logger.console.log(f"[red]Knowledge[/red]: Added information for entity {entity}: {information}")
         return f"noted information for entity {entity}: {information}"
 
-    async def update_entity_information(self, key: str, entity:str, information:str):
+    async def update_entity_information(self, key: int, entity:str, information:str):
         """Update information for an entity (e.g., system or user or service or vulnerability or lead) that might be relevant for a future attack.
 
         Parameters
         ----------
-        key: str
-            the entity id as given in the overview table  
-        entity : str 
+        key: int
+            the numeric entity id as given in the overview table
+        entity : str
             The respective entity, e.g., an user or system or service.
         information : str
             The information about the respective entity.
-        """ 
+        """
+        key = self._resolve_key(self.entity_information, key, 'entity', entity)
         self.entity_information[key]={
             'entity': entity,
             'information': information,

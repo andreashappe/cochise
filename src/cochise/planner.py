@@ -84,8 +84,26 @@ class Planner:
             # set tool call id in the executor logger, just in case the executor is run
             executor.setLogger(Logger(self.logger.console, tool_call.id, self.logger.logger))
 
-            # call the method
-            raw_result = await function_to_call(**args)
+            # call the method. The LLM frequently supplies tool calls that do not
+            # match the specification (e.g. omitting the MITRE ATT&CK
+            # classification), which makes the **args unpacking raise. Log the
+            # error and feed it back as the tool result so the LLM can retry
+            # instead of crashing the planner loop.
+            try:
+                raw_result = await function_to_call(**args)
+            except Exception as e:
+                error = (f"Error calling {function_name} with arguments {args}: {e}. "
+                         "Please call the tool again, supplying all required arguments as described in its specification.")
+                self.logger.log_tool_result(function_name, tool_call.id, error, output=True)
+                msg = {
+                    "role": "tool",
+                    "name": function_name,
+                    "content": error,
+                    "tool_call_id": tool_call.id
+                }
+                self.logger.log_append_to_history(msg, "manual", output=False)
+                self.history.append(msg)
+                continue
 
             if isinstance(raw_result, tuple):
                 result, new_knowledge = raw_result
