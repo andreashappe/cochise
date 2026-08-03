@@ -6,12 +6,13 @@ import json
 from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
+from rich.text import Text
 
 
 def tc_create(data, name, params):
     tmp = {}
     for param in params:
-        tmp[param] = data[param]
+        tmp[param] = data.get(param, 'unknown')
 
     return {
         "tool_name": name,
@@ -36,7 +37,10 @@ def analyze_replay(console, file):
             case 'llm_call':
                 match j['name']:
                     case 'planner_initial_plan':
-                        console.print(Panel(j['result'], title="Intial Plan"))
+                        if j['result'] is None:
+                            console.print(Panel("Planner did not return an initial plan", title="Intial Plan"))
+                        else:
+                            console.print(Panel(j['result'], title="Initial Plan"))
                     case 'compact_history':
                         console.print(Panel(j['result'], title="Compacted Plan"))
                     case 'planner_task_selection':
@@ -51,7 +55,7 @@ def analyze_replay(console, file):
                 match j['tool_name']:
                     case 'perform_task':
                         p = j['params']
-                        text = f"# {p['next_step']} ({p['mitre_attack_tactic']}/{p['mitre_attack_technique']})\n\n{p['next_step_context']}"
+                        text = f"# {p['next_step']} ({p.get('mitre_attack_tactic', 'unknown')}/{p.get('mitre_attack_technique', 'unknown')})\n\n{p.get('next_step_context', 'unknown')}"
                         console.print(Panel(text, title="Starting Tool Call: perform_task"))
                         tool_calls[j['tool_call_id']] = tc_create(j['params'], 'perform_task', ['mitre_attack_tactic', 'mitre_attack_technique', 'next_step', 'next_step_context'])
                     case 'execute_command':
@@ -75,8 +79,8 @@ def analyze_replay(console, file):
                         text = f"# {tc['next_step']} ({tc['mitre_attack_tactic']}/{tc['mitre_attack_technique']})\n\n{tc['next_step_context']}\n\n# Result\n{j['result']}"
                         console.print(Panel(text, title="Tool Call: perform_task"))
                     case 'execute_command':
-                        text = f"technique: {tc['mitre_attack_technique']}\nprocedure: {tc['mitre_attack_procedure']})\n{tc['command']}\n\n# Result\n{j['result']}"
-                        console.print(Panel(text, title="tool_call: execute_command"))
+                        text = f"technique: {tc.get('mitre_attack_technique', 'unknown')}\nprocedure: {tc.get('mitre_attack_procedure', 'unknown')}\n{tc.get('command', 'unknown')}\n\n# Result\n{j['result']}"
+                        console.print(Panel(Text(text), title="tool_call: execute_command"))
                     case 'add_entity_information':
                         console.print(Panel(f"entity: {tc['entity']}\ninformation: {tc['information']}", title="tool_call: add_entity_information"))
                     case 'add_compromised_account':
