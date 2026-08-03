@@ -80,7 +80,13 @@ def analyze_replay(console, file):
                         console.print(Panel(text, title="Tool Call: perform_task"))
                     case 'execute_command':
                         text = f"technique: {tc.get('mitre_attack_technique', 'unknown')}\nprocedure: {tc.get('mitre_attack_procedure', 'unknown')}\n{tc.get('command', 'unknown')}\n\n# Result\n{j['result']}"
-                        console.print(Panel(Text(text), title="tool_call: execute_command"))
+                        print(f"len(text): {len(text)}")
+                        print(f"lines: {len(text.splitlines())}")
+                        if len(text.splitlines()) > 100000:
+                            console.print(Panel(f"tool_call: execute_command result is too long to display ({len(text.splitlines())} lines)", title="tool_call: execute_command"))
+                            print(str(text))
+                        else:
+                            console.print(Panel(Text(text), title="tool_call: execute_command"))
                     case 'add_entity_information':
                         console.print(Panel(f"entity: {tc['entity']}\ninformation: {tc['information']}", title="tool_call: add_entity_information"))
                     case 'add_compromised_account':
