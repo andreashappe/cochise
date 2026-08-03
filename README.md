@@ -1,4 +1,4 @@
-# Cochise: Autonomous LLM-Driven Pen-Testing in ~576 Lines of Python
+# Cochise: Autonomous LLM-Driven Pen-Testing in ~630 Lines of Python
 
 [![arXiv Paper](https://img.shields.io/badge/cs.SE-%20arXiv:2502.04227%20(Main%20Paper)-B31B1B.svg)](https://arxiv.org/abs/2502.04227)
 [![arXiv RCR](https://img.shields.io/badge/cs.SE-%20arXiv:2603.01789%20(RCR)-B31B1B.svg)](https://arxiv.org/abs/2603.01789)
@@ -15,7 +15,7 @@ So basically, I use LLMs to hack Microsoft Active Directory networks.. what coul
 
 - **Build on it**: fork it and add your ideas without fighting framework complexity. We provide analysis scripts for later analysis of log files too.
 - **Benchmark LLMs**: swap models via a single env var and compare cybersecurity capabilities
-- **Understand it**: the entire agent core fits in ~576 lines of readable Python. This makes it also well-suited as a base for vibe-coding sessions.. LLMs can easily understand it too.
+- **Understand it**: the entire agent core fits in ~630 lines of readable Python. This makes it also well-suited as a base for vibe-coding sessions.. LLMs can easily understand it too.
 
 ## Key Results
 
@@ -107,6 +107,8 @@ Cochise will create a timestamped JSON log in `logs/` capturing every LLM call, 
 
 ## Analysis Tools
 
+Note: you can find example run/trajectory captures at `examples/run-trajectories/`.
+
 Cochise ships with tools to replay, analyze, and visualize test runs:
 
 ```bash
@@ -134,11 +136,11 @@ The codebase is structured for readability, not abstraction. The core files (I a
 
 | File | Lines Python Code | Purpose |
 |---|---|---|
-| `planner.py` | 131 | Strategic planning loop |
-| `executor.py` | 129 | Tactical command execution |
-| `knowledge.py` | 73 | Credential & entity tracking |
+| `planner.py` | 146 | Strategic planning loop |
+| `executor.py` | 137 | Tactical command execution |
+| `knowledge.py` | 97 | Credential & entity tracking |
 | `common.py` | 89 | LLM interface (litellm wrapper) |
-| `logger.py` | 80 | Structured JSON + Rich console logging |
+| `logger.py` | 85 | Structured JSON + Rich console logging |
 | `ssh_connection.py` | 37 | Async SSH with timeout and reconnect |
 
 See [walkthrough.md](docs/walkthrough.md) for a detailed code walkthrough.
